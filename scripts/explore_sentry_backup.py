@@ -49,7 +49,10 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist, Pose, Quaternion, PoseWithCovariance, TwistWithCovariance
 from twist_to_motor_rps.msg import Num
-from math import atan2, atan, pi, cos, sin, sqrt, pow, fabs
+from math import atan2
+
+
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 
 ##########VARIABLES##########
@@ -60,12 +63,32 @@ occupancy_grid_callback_data = OccupancyGrid()
 #for wheel encoder velocity reading:
 wheel_encoder_velocity_callback_data= [0,0]
 
+#for wheel odometry readings:
+odom_wheels_callback_data = Odometry()
+
 #for zed2 imu readings:
 zed2_imu_callback_data = Imu()
 
 #for publishing base velocity values in twist format
 base_velocity = Twist()
 
+'''def get_rotation_ros (msg):
+    roll, pitch, yaw
+    orientation_q = msg.pose.pose.orientation
+    orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+    (roll, pitch, yaw) = euler_from_quaternion (orientation_list)
+    return (roll, pitch, yaw)'''
+
+def quart_to_euler(q):
+    #yaw only
+    siny_cosp = 2 * (q.w*q.z+q.x*q.y)
+
+    cospy_cosp = 1 - 2 * (q.y*q.y+q.z*q.z)
+
+    yaw = atan2(siny_cosp, cospy_cosp)
+    print("yaw:")
+    print(yaw)
+    return yaw
 
 
 #this callback function gets called whenever the occupancy grid is updated
@@ -115,6 +138,21 @@ def callback_zed2_imu(data):
     zed2_imu_callback_data = data
 
 
+#this callback function gets called whenever a message is recieved
+#it pushes the message to the terminal for us to confirm what happened
+#and it checks the value of the message and performs actions based on it
+def callback(data):
+    rospy.loginfo(rospy.get_caller_id() + ' I heard: %s', data.data)
+    global keepCounting, reset  
+        
+    if (data.data=="start_timer"): #this also continues timing
+        keepCounting = True
+        reset = False
+        rospy.loginfo("started")
+        #pub2.publish("timer_started")
+        
+
+
 def listener():
  
 
@@ -133,34 +171,16 @@ def listener():
     rospy.Subscriber('/map', OccupancyGrid, callback_occupancy_grid)
     #actual wheel velocity from encoders subscriber:
     rospy.Subscriber('/encoder_rps', Num, callback_wheel_encoder)
+    #wheel odometry subscriber:
+    rospy.Subscriber("odom_wheels", Odometry, callback_odom_wheels)
     
     #zed2 imu subscriber:
     rospy.Subscriber("/zed2/zed_node/imu/data", Imu, callback_zed2_imu)
     
     
     #this value is a sleep value
-    rate = rospy.Rate(5) #5Hz
-
-    #rps_output variable
-    wheel_rps=[0,0]
-
-    #Set reference positions
-    yd=1.8
-    xd=1.5
-
-    xk=0
-    yk=0
-    phik=0
-    time=0
-    phidk=0
-    #Set gains    
-    alpha=0.1
-    kp=0.5
-    ki=0.01
-    intek=0
-    iter=0
-    xdestraj=[1.5,1.5,0.3,0,0]
-    ydestraj=[0,1.8,1.8,0,0]
+    rate = rospy.Rate(1) #1Hz
+    
 
     #while ROS is not shutdown via terminal etc, run this in a loop at a rate of "rate Hz"
     while not rospy.is_shutdown():
@@ -190,6 +210,16 @@ def listener():
         wheel_encoder_velocity_left=wheel_encoder_velocity_callback_data[0]
         wheel_encoder_velocity_right=wheel_encoder_velocity_callback_data[1]
 
+        #odometry wheels data:
+        odom_pose_x=odom_wheels_callback_data.pose.pose.position.x
+        odom_pose_y=odom_wheels_callback_data.pose.pose.position.y
+        odom_pose_z=odom_wheels_callback_data.pose.pose.position.z
+        odom_ori_x=odom_wheels_callback_data.pose.pose.orientation.x
+        odom_ori_x=odom_wheels_callback_data.pose.pose.orientation.y
+        odom_ori_x=odom_wheels_callback_data.pose.pose.orientation.z
+        odom_ori_x=odom_wheels_callback_data.pose.pose.orientation.w
+        print(quart_to_euler(odom_wheels_callback_data.pose.pose.orientation))
+
         #zed2 imu data:
         imu_ori_x=zed2_imu_callback_data.orientation.x
         imu_ori_y=zed2_imu_callback_data.orientation.y
@@ -201,97 +231,21 @@ def listener():
         imu_lin_vel_x=zed2_imu_callback_data.linear_acceleration.x
         imu_lin_vel_y=zed2_imu_callback_data.linear_acceleration.y
         imu_lin_vel_z=zed2_imu_callback_data.linear_acceleration.z
-        
+
         #print(imu_lin_vel_z)
 
         #################################
         #insert navigation algorithm here
         #################################
-        #solver for odometry
-        ts=2
-        r=0.11 #radius of the wheel
-        d=0.185 #distance between wheen and CG
-        rightvel=2*pi*r*wheel_encoder_velocity_right
-        leftvel=2*pi*r*wheel_encoder_velocity_left
-        #Grab coordinates
-        xd=xdestraj[iter]
-        yd=ydestraj[iter]
-        #initial conditions
-        if time==0:
-            xk=0
-            yk=0
-            phik=0
-            phidk=0
-        #Euler Solver
-        xkp=xk + ts*(r/2)*(rightvel+leftvel)*cos(phik)
-        ykp=yk + ts*(r/2)*(rightvel+leftvel)*sin(phik)
-        phikp=phik+ts*(r/(2*d))*(rightvel-leftvel)
-        time=time+1
-
-        #Reset heading angle for full rotation in both directions
-        if phik>pi*2:
-            phikp=0
-        if phik<-pi*2:
-            phikp=0
-        #print("Left rps: "+ str(wheel_encoder_velocity_left) + "Right rps: "+ str(wheel_encoder_velocity_right))
-        
-
-         #Develop Control systems
-        ex=xd-xk
-        ey=yd-yk
-        if fabs(ex)<=0.35:
-             ex=0.000001
-        if fabs(ey)<=0.25:
-             ey=0
-         
-        vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
-        phidkp=phidk+ 0.2*(atan(ey/ex))
-        
-        if fabs(phidk)>2*pi:
-            phidk=0
-   
-
-        ephi=phidk-phik
-        intekp=intek+ki*ephi # integral part
-        phicdot=kp*(ephi)+intekp
-        
-        print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" phides: "+ str(phidk)+" phik: "+str(phik))
 
         #if using any loops consider adding "while not rospy.is_shutdown():" 
         #as a condition so that ctrl+C can break the loop
 
-
- 
-        #publish base velocity using individual rps:
-        #left wheel rps:
-        wl=(2*vd-phicdot*d)/(2*r)
-        wr=(2*vd+phicdot*d)/(2*r)
-        wheel_rps[0]=wl/(2*pi*r)
-        #right wheel rps:
-        wheel_rps[1]=wr/(2*pi*r)
-
-        if sqrt(pow(ex,2)+pow(ey,2))<0.5:
-            wheel_rps[0]=0
-            wheel_rps[1]=0
-        #Get next trajectory
-            if iter<len(xdestraj)-1:
-                iter=iter+1
-
-        #publish the rps to the wheels:
-        pub_wheel_rps.publish(wheel_rps)
-
-        #Set next values
-        xk=xkp
-        yk=ykp
-        phik=phikp
-        phidk=phidkp
-       
-
-
-        '''#twist_to_motor node converts this into individual wheel velocities 
-        base_velocity.linear.x=vd #velocity in x direction
-        base_velocity.angular.z=phicdot #velocity around z
-        pub_base_velocity.publish(base_velocity)'''
+        #publish base velocity using a twist message:
+        #twist_to_motor node converts this into individual wheel velocities 
+        base_velocity.linear.x=0 #velocity in x direction
+        base_velocity.angular.z=0 #velocity around z
+        pub_base_velocity.publish(base_velocity)
 
         rate.sleep()
 
@@ -313,7 +267,7 @@ if __name__ == '__main__':
     #create a publisher object and defines which topic it subscribes to
     #pub = rospy.Publisher('progress', Int32, queue_size=10)
 
-    pub_wheel_rps = rospy.Publisher('wheel_rps_vector', Num, queue_size=10)
+    pub_base_velocity = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 
     #pub_timer_finished = rospy.Publisher('sentry_control_topic', String, queue_size=10)
     

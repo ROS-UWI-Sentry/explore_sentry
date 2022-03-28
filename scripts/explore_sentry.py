@@ -155,12 +155,17 @@ def listener():
     phidk=0
     #Set gains    
     alpha=0.1
-    kp=0.5
-    ki=0.01
+    kp=0.1
+    ki=0.001
     intek=0
     iter=0
     xdestraj=[1.5,1.5,0.3,0,0]
     ydestraj=[0,1.8,1.8,0,0]
+    #Bounds to adjust
+    xerrbound=0.2
+    yerrbound=0.1
+    ecludvec=0.17
+    headingbound=0.3
 
     #while ROS is not shutdown via terminal etc, run this in a loop at a rate of "rate Hz"
     while not rospy.is_shutdown():
@@ -229,9 +234,7 @@ def listener():
         time=time+1
 
         #Reset heading angle for full rotation in both directions
-        if phik>pi*2:
-            phikp=0
-        if phik<-pi*2:
+        if fabs(phik)>pi*2:
             phikp=0
         #print("Left rps: "+ str(wheel_encoder_velocity_left) + "Right rps: "+ str(wheel_encoder_velocity_right))
         
@@ -239,29 +242,31 @@ def listener():
          #Develop Control systems
         ex=xd-xk
         ey=yd-yk
-        if fabs(ex)<=0.35:
+        if fabs(ex)<=xerrbound:
              ex=0.000001
-        if fabs(ey)<=0.25:
+        if fabs(ey)<=yerrbound:
              ey=0
          
         vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
-        phidkp=phidk+ 0.2*(atan(ey/ex))
-        
-        if fabs(phidk)>2*pi:
-            phidk=0
+        #phidkp=phidk+ 0.2*(atan2(ey,ex))
+        phidkp=(atan2(ey,ex))
+
+        if fabs(phidkp)>2*pi:
+            phidkp=0
    
 
         ephi=phidk-phik
         intekp=intek+ki*ephi # integral part
         phicdot=kp*(ephi)+intekp
         
-        print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" phides: "+ str(phidk)+" phik: "+str(phik))
+        print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" phides: "+ str(phidkp)+" phik: "+str(phik))
 
         #if using any loops consider adding "while not rospy.is_shutdown():" 
         #as a condition so that ctrl+C can break the loop
+        if fabs(ephi)>ecludvec:
+            vd=0
+            
 
-
- 
         #publish base velocity using individual rps:
         #left wheel rps:
         wl=(2*vd-phicdot*d)/(2*r)
@@ -270,7 +275,7 @@ def listener():
         #right wheel rps:
         wheel_rps[1]=wr/(2*pi*r)
 
-        if sqrt(pow(ex,2)+pow(ey,2))<0.5:
+        if sqrt(pow(ex,2)+pow(ey,2))<headingbound:
             wheel_rps[0]=0
             wheel_rps[1]=0
         #Get next trajectory

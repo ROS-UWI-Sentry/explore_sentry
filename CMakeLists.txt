@@ -123,6 +123,12 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+
+# if CMAKE_BUILD_TYPE is not specified, take 'Release' as default
+IF(NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Release)
+ENDIF(NOT CMAKE_BUILD_TYPE)
+
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/explore_sentry.cpp
@@ -136,7 +142,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/explore_sentry_node.cpp)
+add_executable(zed_depth src/zed_depth.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -202,7 +208,7 @@ include_directories(
 ## Add gtest based cpp test target and link libraries
 # catkin_add_gtest(${PROJECT_NAME}-test test/test_explore_sentry.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+target_link_libraries(zed_depth ${catkin_LIBRARIES})
 # endif()
 
 ## Add folders to be run by python nosetests

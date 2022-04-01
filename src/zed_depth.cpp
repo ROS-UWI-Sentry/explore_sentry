@@ -25,6 +25,10 @@
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <sstream>
+#include <tgmath.h>
+
+
+int global_run_once = 0;
 
 /**
  * Subscriber callback
@@ -32,6 +36,7 @@
 
 void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
+  std::stringstream ss;
   // Get a pointer to the depth values casting the data
   // pointer to floating point
   float* depths = (float*)(&msg->data[0]);
@@ -42,9 +47,72 @@ void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 
   // Linear index of the center pixel
   int centerIdx = u + msg->width * v;
+  int alpha=4; //width aspect must be greater than 2
+  int beta=3; //height aspect must be greater than 2
+  float distance_count=0;
+  float point_count=0;
+//Right half plane
+    for(int i=v; i!=v+(msg->width)/alpha && ros::ok();i++){
+      //iterate through width space
+      for (int q=u;q!=u+(msg->height)/beta && ros::ok();q++){
+        //iterate through top right quadrant
+        int pixval=q+msg->width*i;
+        //ROS_INFO("%g",msg->width);
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+            //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
+        }
+        
+      }
+      for (int q=u-(msg->height)/beta; q!=u  && ros::ok(); q++){
+        //iterate through bottom right quadrant
+        int pixval=q+msg->width*i;
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+        }
+       
+      } 
+      
+    }
+//Left half plane
+    for(int i=v-(msg->width)/alpha; i!=v && ros::ok();i++){
+      //iterate through width space
+      for (int q=u;q!=u+(msg->height)/beta && ros::ok();q++){
+        //iterate through top left quadrant
+        int pixval=q+msg->width*i;
+        //ROS_INFO("%g",msg->width);
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+            //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
+        }
+        //ROS_INFO("P: %g m",pixval);
+        //ROS_INFO("z: %g m",depths[pixval]);
+      }
+      for (int q=u-(msg->height)/beta; q!=u  && ros::ok(); q++){
+        //iterate through bottom left quadrant
+        int pixval=q+msg->width*i;
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+            //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
+        }
+      } 
 
+    }
+    float pixel_size=4*((msg->height)/beta)*((msg->width)/alpha);
+    float perc_covered=distance_count/pixel_size;
+    std::cout <<"RESET: " << distance_count<<" Cov:"<<perc_covered<<'\n';
+
+    distance_count=0;
+  
+
+  
   // Output the measure
-  ROS_INFO("Center distance : %g m", depths[centerIdx]);
+  //ROS_INFO("Center distance : %g m", depths[centerIdx]);
+  //ROS_INFO("test pixel : %g m", depths[2 + msg->width * 2]);
 }
 
 /**

@@ -26,147 +26,92 @@
 #include <sensor_msgs/Image.h>
 #include <sstream>
 #include <tgmath.h>
-#include "std_msgs/String.h"
-#include "std_msgs/Float64.h"
+
 
 int global_run_once = 0;
-std_msgs::Float64 msg_angle;
-ros::Publisher commands;
-
 
 /**
  * Subscriber callback
  */
 
-float scandepth(int left_col, int u, int width, int height, float depthbound,float *depths){
-  float distance_count=0;
-
-  for(int i=left_col; i!=u+left_col && ros::ok();i++){
-      //iterate through width space
-      for (int q=0;q!=height-1 && ros::ok();q++){
-        //iterate through top right quadrant
-        int pixval=i+width*q;
-        //std::cout <<"pixel sel: "<<pixval<<'\n';
-        //ROS_INFO("%g",msg->width);
-        float depth=depths[pixval];
-        //float depth=1;
-        if (depth<depthbound){
-            distance_count=distance_count+1;
-            //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
-        }
-        
-      }
-       
-    }
-
-  float column_area=u*height;
-    float perc_covered=distance_count/column_area;
-    return perc_covered;
-}
-
 void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
-  
-  
+  std::stringstream ss;
   // Get a pointer to the depth values casting the data
   // pointer to floating point
   float* depths = (float*)(&msg->data[0]);
 
   // Image coordinates of the center pixel
-  //int u = msg->width / 2;
-  //int v = msg->height / 2;
+  int u = msg->width / 2;
+  int v = msg->height / 2;
 
   // Linear index of the center pixel
-  //int centerIdx = u + msg->width * v;
-  //int alpha=4; //width aspect must be greater than 2
-  //int beta=3; //height aspect must be greater than 2
-  
-
-  int u=388; //robot width at 1 meter perspective projection
-  int v=357; //robot height at 1 meter perspective projection
-
-int leftwidtharr[6]={164,358,552,746,910,940};
-int rightwidtharr[6]={1104,1298,1492,1686,1880,2074}; 
-int widthcenter=910;
-float depthbound=0.75;
-float areacoveragethresh=0.1;
-
-/*for(int i=widthcenter; i!=widthcenter+u && ros::ok();i++){
+  int centerIdx = u + msg->width * v;
+  int alpha=4; //width aspect must be greater than 2
+  int beta=3; //height aspect must be greater than 2
+  float distance_count=0;
+  float point_count=0;
+//Right half plane
+    for(int i=v; i!=v+(msg->width)/alpha && ros::ok();i++){
       //iterate through width space
-      for (int q=0;q!=(msg->height)-1 && ros::ok();q++){
+      for (int q=u;q!=u+(msg->height)/beta && ros::ok();q++){
         //iterate through top right quadrant
-        int pixval=i+msg->width*q;
-        //std::cout <<"pixel sel: "<<pixval<<'\n';
+        int pixval=q+msg->width*i;
         //ROS_INFO("%g",msg->width);
         float depth=depths[pixval];
-        //float depth=1;
-        if (depth<depthbound){
+        if (depth<0.7){
             distance_count=distance_count+1;
             //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
         }
         
       }
-       
-    } */
-    int height=(msg->height);
-    int width=(msg->width);
-   // float column_area=u*(msg->height);
-   // float perc_covered=distance_count/column_area;
-    float perc_covered=scandepth(widthcenter, u, width, height, depthbound, depths);
-    if (perc_covered>areacoveragethresh){
-      //Start scanning algorithm
-      //Start left array first, then move to right 
-      int leftacheived=0;
-      //Scan Left 55degree FOV
-      for (int ll=0; ll!=6; ll++){
-          perc_covered=scandepth(leftwidtharr[ll], u, width, height, depthbound, depths);
-          if (perc_covered<areacoveragethresh){
-            leftacheived=1+leftacheived;
-            std::cout <<"Left choice percCov:"<<perc_covered<<" column:"<<ll<<'\n';
-            
-            /*//publishing
-            std::stringstream ss;
-            ss <<"Right percCov:" << std::to_string(perc_covered);
-            command_msg.data = ss.str();
-            commands.publish(command_msg);*/
-            msg_angle.data = 23.2;
-            commands.publish(msg_angle);
-
-            break;
-          }
-      }
-      //Did not get any passable columns in left try right
-      if(leftacheived==0){
-        for (int ll=0; ll!=6; ll++){
-            perc_covered=scandepth(rightwidtharr[ll], u, width, height, depthbound, depths);
-            if (perc_covered<areacoveragethresh){
-              std::cout <<"Right percCov:"<<perc_covered<<" column:"<<ll<<'\n';
-              
-
-
-              break;
-            }else{
-              //Could not find left or right column free rotate
-              std::cout <<"Rotate:"<<'\n';
-            
-
-            }  
+      for (int q=u-(msg->height)/beta; q!=u  && ros::ok(); q++){
+        //iterate through bottom right quadrant
+        int pixval=q+msg->width*i;
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
         }
-      }
-
-    }else{
-      std::cout <<"Center percCov:"<<perc_covered<<'\n';
+       
+      } 
+      
     }
-    
+//Left half plane
+    for(int i=v-(msg->width)/alpha; i!=v && ros::ok();i++){
+      //iterate through width space
+      for (int q=u;q!=u+(msg->height)/beta && ros::ok();q++){
+        //iterate through top left quadrant
+        int pixval=q+msg->width*i;
+        //ROS_INFO("%g",msg->width);
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+
+        }
+
+      }
+      for (int q=u-(msg->height)/beta; q!=u  && ros::ok(); q++){
+        //iterate through bottom left quadrant
+        int pixval=q+msg->width*i;
+        float depth=depths[pixval];
+        if (depth<0.7){
+            distance_count=distance_count+1;
+        }
+      } 
+
+    }
+    float pixel_size=4*((msg->height)/beta)*((msg->width)/alpha);
+    float perc_covered=distance_count/pixel_size;
+    std::cout <<"RESET: " << distance_count<<" Cov:"<<perc_covered<<'\n';
+
+    distance_count=0;
+  
 
   
-  }
-  
-
   // Output the measure
   //ROS_INFO("Center distance : %g m", depths[centerIdx]);
   //ROS_INFO("test pixel : %g m", depths[2 + msg->width * 2]);
-
+}
 
 /**
  * Node main function
@@ -214,20 +159,6 @@ int main(int argc, char** argv)
    * callbacks will be called from within this thread (the main one).  ros::spin()
    * will exit when Ctrl-C is pressed, or the node is shutdown by the master.
    */
-
-  ros::Rate rate(1); //1Hz
-
-
-  //create publisher object:
-  commands = n.advertise<std_msgs::Float64>("sentry_commands", 1000);
-
-  /*while(ros::ok()){
-    command_msg.data = ss.str();
-    commands.publish(command_msg);
-    rate.sleep();
-  }*/
-
-
   ros::spin();
 
   return 0;

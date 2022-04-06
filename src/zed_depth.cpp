@@ -28,10 +28,17 @@
 #include <tgmath.h>
 #include "std_msgs/String.h"
 #include "std_msgs/Float64.h"
+#include "std_msgs/Bool.h"
 
 int global_run_once = 0;
 std_msgs::Float64 msg_angle;
 ros::Publisher commands;
+std_msgs::String msg_string;
+
+//std_msgs::Bool nav_ready;
+bool nav_ready;
+
+ 
 
 
 /**
@@ -64,9 +71,20 @@ float scandepth(int left_col, int u, int width, int height, float depthbound,flo
     return perc_covered;
 }
 
+void handshakeCallback(const std_msgs::Bool::ConstPtr& msg)
+{
+  nav_ready=&msg->data;
+  std::cout <<"HANDSHAKE VALUE:"<<nav_ready<<'\n';
+}
+  
+
+
+
 void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
   
+
+
   
   // Get a pointer to the depth values casting the data
   // pointer to floating point
@@ -124,13 +142,37 @@ float areacoveragethresh=0.1;
             leftacheived=1+leftacheived;
             std::cout <<"Left choice percCov:"<<perc_covered<<" column:"<<ll<<'\n';
             
-            /*//publishing
+            /* OLD_publishing
             std::stringstream ss;
             ss <<"Right percCov:" << std::to_string(perc_covered);
             command_msg.data = ss.str();
-            commands.publish(command_msg);*/
-            msg_angle.data = 23.2;
-            commands.publish(msg_angle);
+            commands.publish(command_msg);
+
+            ss <<"Right percCov:" << std::to_string(perc_covered);
+            msg_string.data = ss.str()
+            commands.publish(msg_string);*/
+
+            //to send floats, check data type of publisher:
+            //msg_angle.data = 23.2;
+            //commands.publish(msg_angle);
+
+          /*if (nav_ready==true){
+            std::stringstream ss;
+            ss <<"Point:" << std::to_string(perc_covered);
+            msg_string.data = ss.str();
+            commands.publish(msg_string);
+          }*/
+
+
+          if (nav_ready==true){
+            
+            std::stringstream ss;
+            ss <<"Point:value ";
+            std::cout <<"Point:value"<<'\n';
+            msg_string.data = ss.str();
+            commands.publish(msg_string);  }
+
+
 
             break;
           }
@@ -208,6 +250,9 @@ int main(int argc, char** argv)
    * away the oldest ones.
    */
   ros::Subscriber subDepth = n.subscribe("/zed2/zed_node/depth/depth_registered", 10, depthCallback);
+
+  ros::Subscriber subHandshake = n.subscribe("handshake", 10, handshakeCallback);
+
   ROS_INFO("zed depth started");
   /**
    * ros::spin() will enter a loop, pumping callbacks.  With this version, all
@@ -218,8 +263,8 @@ int main(int argc, char** argv)
   ros::Rate rate(1); //1Hz
 
 
-  //create publisher object:
-  commands = n.advertise<std_msgs::Float64>("sentry_commands", 1000);
+  //create publisher object(created in global scope):
+  commands = n.advertise<std_msgs::String>("sentry_commands", 1000);
 
   /*while(ros::ok()){
     command_msg.data = ss.str();

@@ -45,6 +45,7 @@
 import rospy
 from std_msgs.msg import String
 from std_msgs.msg import Int32
+from std_msgs.msg import Bool
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist, Pose, Quaternion, PoseWithCovariance, TwistWithCovariance
@@ -66,7 +67,9 @@ zed2_imu_callback_data = Imu()
 #for publishing base velocity values in twist format
 base_velocity = Twist()
 
+sentry_commands=String()
 
+ready= Bool()
 
 #this callback function gets called whenever the occupancy grid is updated
 def callback_occupancy_grid(data):
@@ -115,13 +118,22 @@ def callback_zed2_imu(data):
     zed2_imu_callback_data = data
 
 
+def callback_sentry_commands(data):
+    global sentry_commands, ready
+    sentry_commands=data
+    ready= not ready #False
+    #pub_ready.publish(ready)  
+    print(ready)
+
+
 def listener():
  
 
     
 
     global occupancy_grid_callback_data, wheel_encoder_velocity_callback_data
-    global odom_wheels_callback_data, zed2_imu_callback_data
+    global odom_wheels_callback_data, zed2_imu_callback_data, sentry_commands
+    global ready
     rospy.loginfo("explore_sentry started")
     ###Subscribers###
 
@@ -137,7 +149,9 @@ def listener():
     #zed2 imu subscriber:
     rospy.Subscriber("/zed2/zed_node/imu/data", Imu, callback_zed2_imu)
     
-    
+    #subscride to information from the zed_depth.cpp script
+    rospy.Subscriber("sentry_commands", String, callback_sentry_commands)
+
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
 
@@ -206,6 +220,10 @@ def listener():
         imu_lin_vel_x=zed2_imu_callback_data.linear_acceleration.x
         imu_lin_vel_y=zed2_imu_callback_data.linear_acceleration.y
         imu_lin_vel_z=zed2_imu_callback_data.linear_acceleration.z
+
+        #get data from zed_depth.cpp in this cycle:
+        sentry_commands_data=sentry_commands.data
+        print(sentry_commands)
         
         #print(imu_lin_vel_z)
 
@@ -278,9 +296,20 @@ def listener():
         if sqrt(pow(ex,2)+pow(ey,2))<headingbound:
             wheel_rps[0]=0
             wheel_rps[1]=0
+
+            #ready= True
+            #pub_ready.publish(ready)
+
         #Get next trajectory
             if iter<len(xdestraj)-1:
-                iter=iter+1
+                iter=iter+1        
+        
+        
+        
+        #ready= True
+        pub_ready.publish(ready)   
+
+
 
         #publish the rps to the wheels:
         pub_wheel_rps.publish(wheel_rps)
@@ -297,6 +326,7 @@ def listener():
         base_velocity.linear.x=vd #velocity in x direction
         base_velocity.angular.z=phicdot #velocity around z
         pub_base_velocity.publish(base_velocity)'''
+
 
         rate.sleep()
 
@@ -322,6 +352,12 @@ if __name__ == '__main__':
 
     #pub_timer_finished = rospy.Publisher('sentry_control_topic', String, queue_size=10)
     
+    #ready to navigate
+    ready = True
+
+    pub_ready = rospy.Publisher('handshake', Bool, queue_size=10)
+
+
     #start the subscribing and publishing process
     try:
         listener() 

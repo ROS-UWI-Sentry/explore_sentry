@@ -32,13 +32,16 @@
 
 int global_run_once = 0;
 std_msgs::Float64 msg_angle;
-ros::Publisher commands;
+ros::Publisher pub_commands;
+ros::Publisher pub_depth_ready;
 std_msgs::String msg_string;
 
-//std_msgs::Bool nav_ready;
-bool nav_ready;
+std_msgs::Bool depth_ready_bool;
 
- 
+//std_msgs::Bool handshake_from_nav;
+bool handshake_from_nav;
+
+int test_count = 0;
 
 
 /**
@@ -71,13 +74,23 @@ float scandepth(int left_col, int u, int width, int height, float depthbound,flo
     return perc_covered;
 }
 
-void handshakeCallback(const std_msgs::Bool::ConstPtr& msg)
+void handshake_from_nav_callback(const std_msgs::Bool::ConstPtr& msg)
 {
-  nav_ready=&msg->data;
-  std::cout <<"HANDSHAKE VALUE:"<<nav_ready<<'\n';
+  handshake_from_nav=msg->data;
+  if (handshake_from_nav==true){
+    //send message here(save variable in code lower down)
+    pub_commands.publish(msg_string);
+    //ready to receive data
+    depth_ready_bool.data=true;
+    pub_depth_ready.publish(depth_ready_bool);
+  }
+   
+  std::cout <<"inside of callback for handshake"<<handshake_from_nav<<'\n';
 }
   
-
+void data_from_nav_callback(const std_msgs::String::ConstPtr& msg){
+  std::cout <<"data from explore_sentry"<< msg->data <<'\n';
+}
 
 
 void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
@@ -146,33 +159,33 @@ float areacoveragethresh=0.1;
             std::stringstream ss;
             ss <<"Right percCov:" << std::to_string(perc_covered);
             command_msg.data = ss.str();
-            commands.publish(command_msg);
+            pub_commands.publish(command_msg);
 
             ss <<"Right percCov:" << std::to_string(perc_covered);
             msg_string.data = ss.str()
-            commands.publish(msg_string);*/
+            pub_commands.publish(msg_string);*/
 
             //to send floats, check data type of publisher:
             //msg_angle.data = 23.2;
-            //commands.publish(msg_angle);
+            //pub_commands.publish(msg_angle);
 
-          /*if (nav_ready==true){
+          /*if (handshake_from_nav==true){
             std::stringstream ss;
             ss <<"Point:" << std::to_string(perc_covered);
             msg_string.data = ss.str();
-            commands.publish(msg_string);
+            pub_commands.publish(msg_string);
           }*/
 
-
-          if (nav_ready==true){
+          //use this one:
+          /*if (handshake_from_nav==true){
             
             std::stringstream ss;
             ss <<"Point:value ";
             std::cout <<"Point:value"<<'\n';
             msg_string.data = ss.str();
-            commands.publish(msg_string);  }
-
-
+            depth_ready_bool.data=false;
+            pub_depth_ready.publish(depth_ready_bool); 
+            }*/
 
             break;
           }
@@ -199,9 +212,18 @@ float areacoveragethresh=0.1;
     }else{
       std::cout <<"Center percCov:"<<perc_covered<<'\n';
     }
-    
-
-  
+    /*
+      if (handshake_from_nav==true){    
+            std::stringstream ss;
+            ss <<"Point:value ";
+            std::cout <<"inside of sending to explore_sentry "<<test_count<<'\n';
+            msg_string.data = ss.str();
+            //depth_ready_bool.data=true;
+            
+            //pub_depth_ready.publish(depth_ready_bool); 
+            test_count = test_count + 1;
+            }
+  */
   }
   
 
@@ -251,7 +273,9 @@ int main(int argc, char** argv)
    */
   ros::Subscriber subDepth = n.subscribe("/zed2/zed_node/depth/depth_registered", 10, depthCallback);
 
-  ros::Subscriber subHandshake = n.subscribe("handshake", 10, handshakeCallback);
+  ros::Subscriber subHandshake = n.subscribe("handshake_from_nav", 10, handshake_from_nav_callback);
+
+  ros::Subscriber subNavData = n.subscribe("commands_from_nav", 10 , data_from_nav_callback);
 
   ROS_INFO("zed depth started");
   /**
@@ -264,11 +288,20 @@ int main(int argc, char** argv)
 
 
   //create publisher object(created in global scope):
-  commands = n.advertise<std_msgs::String>("sentry_commands", 1000);
+  pub_commands = n.advertise<std_msgs::String>("commands_from_depth", 1000);
+  pub_depth_ready = n.advertise<std_msgs::Bool>("handshake_from_depth", 1000, true);
+
+  //to allow node to register with master etc
+  rate.sleep();
+
+  //to initialize the handshake as false
+   depth_ready_bool.data=false;
+   pub_depth_ready.publish(depth_ready_bool);
+   std::cout <<"test string"<<'\n';
 
   /*while(ros::ok()){
     command_msg.data = ss.str();
-    commands.publish(command_msg);
+    pub_commands.publish(command_msg);
     rate.sleep();
   }*/
 

@@ -67,9 +67,10 @@ zed2_imu_callback_data = Imu()
 #for publishing base velocity values in twist format
 base_velocity = Twist()
 
-sentry_commands=String()
+commands_from_depth=String()
 
 ready= Bool()
+handshake_from_depth= Bool()
 
 #this callback function gets called whenever the occupancy grid is updated
 def callback_occupancy_grid(data):
@@ -118,12 +119,27 @@ def callback_zed2_imu(data):
     zed2_imu_callback_data = data
 
 
-def callback_sentry_commands(data):
-    global sentry_commands, ready
-    sentry_commands=data
-    ready= not ready #False
-    #pub_ready.publish(ready)  
-    print(ready)
+def callback_data_from_depth(data):
+    global commands_from_depth, ready
+    commands_from_depth=data
+    print(commands_from_depth.data)
+    print("Inside receiving from depth")
+
+
+
+def callback_handshake_from_depth(data):
+    global handshake_from_depth
+    handshake_from_depth=data.data
+    if handshake_from_depth==True:
+        print("inside of sending to depth")
+        ready = True
+        pub_ready.publish(ready)
+        pub_command.publish("data from nav as string")
+
+
+
+    #print(ready)
+
 
 
 def listener():
@@ -132,7 +148,7 @@ def listener():
     
 
     global occupancy_grid_callback_data, wheel_encoder_velocity_callback_data
-    global odom_wheels_callback_data, zed2_imu_callback_data, sentry_commands
+    global odom_wheels_callback_data, zed2_imu_callback_data, commands_from_depth
     global ready
     rospy.loginfo("explore_sentry started")
     ###Subscribers###
@@ -150,10 +166,15 @@ def listener():
     rospy.Subscriber("/zed2/zed_node/imu/data", Imu, callback_zed2_imu)
     
     #subscride to information from the zed_depth.cpp script
-    rospy.Subscriber("sentry_commands", String, callback_sentry_commands)
+    rospy.Subscriber("commands_from_depth", String, callback_data_from_depth)
+
+    #subscribe to handshake from the zed_depth.cpp script
+    rospy.Subscriber("handshake_from_depth", Bool, callback_handshake_from_depth)
 
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
+
+
 
     #rps_output variable
     wheel_rps=[0,0]
@@ -222,8 +243,8 @@ def listener():
         imu_lin_vel_z=zed2_imu_callback_data.linear_acceleration.z
 
         #get data from zed_depth.cpp in this cycle:
-        sentry_commands_data=sentry_commands.data
-        print(sentry_commands)
+        commands_from_depth_data=commands_from_depth.data
+        
         
         #print(imu_lin_vel_z)
 
@@ -304,12 +325,19 @@ def listener():
             if iter<len(xdestraj)-1:
                 iter=iter+1        
         
+        '''
+        #if you are ready to accept data publish true:
+        ready = True
+        pub_ready.publish(ready)             
         
-        
-        #ready= True
-        pub_ready.publish(ready)   
+        #if you receive the okay to send data then send it:
+        if handshake_from_depth==True:
+            print("inside of sending to depth")
+            ready = True
+            pub_ready.publish(ready)
+            pub_command.publish("data from nav as string")   
 
-
+        '''
 
         #publish the rps to the wheels:
         pub_wheel_rps.publish(wheel_rps)
@@ -352,12 +380,20 @@ if __name__ == '__main__':
 
     #pub_timer_finished = rospy.Publisher('sentry_control_topic', String, queue_size=10)
     
-    #ready to navigate
+
+
+    pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
+    pub_command = rospy.Publisher('commands_from_nav', String, queue_size=10)
+    #this value is a sleep value
+    rate = rospy.Rate(1) #5Hz
+
+    #so node can register with master
+    rate.sleep()
+
+    #initialize this publisher
+    #not ready initialy
     ready = True
-
-    pub_ready = rospy.Publisher('handshake', Bool, queue_size=10)
-
-
+    pub_ready.publish(ready)
     #start the subscribing and publishing process
     try:
         listener() 

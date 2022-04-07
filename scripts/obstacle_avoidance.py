@@ -35,7 +35,7 @@
 
                         ###note###
 # ____________________________________________________
-#|This is a simple counter.                           |
+#|This is uses point cloud                            |
 #|See accompanying flowchart for overall operation    |
 #|This node is a combination of a subscriber          |
 #|and publisher.                                      |

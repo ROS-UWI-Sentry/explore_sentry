@@ -21,3 +21,17 @@ rosrun explore_sentry zed_depth
 
 ## new terminal
 roslaunch zed_wrapper zed2.launch
+
+## Network setup:
+In a new terminal:
+```
+ssh uwi-sentry-agx@192.168.1.146
+export ROS_MASTER_URI=http://192.168.1.146:11311
+export ROS_IP=192.168.1.146
+```
+
+On companion PC terminal:
+```
+export ROS_MASTER_URI=http://192.168.1.146:11311
+export ROS_IP=192.168.1.108
+```

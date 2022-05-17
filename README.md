@@ -8,16 +8,16 @@ zed-ros-wrapper/zed_wrapper/launch/zed2.launch
 
 the commands to launch are:
 
-*new terminal
+## new terminal
 rosrun ard_com ard_com_rec.py
 
-*new terminal
+##  new terminal
 rosrun explore_sentry explore_sentry.py
 
-*new terminal
+## new terminal
 cd catkin_ws
 catkin_make
 rosrun explore_sentry zed_depth
 
-*new terminal
+## new terminal
 roslaunch zed_wrapper zed2.launch

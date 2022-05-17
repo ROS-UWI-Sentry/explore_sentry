@@ -23,6 +23,9 @@ rosrun explore_sentry zed_depth
 roslaunch zed_wrapper zed2.launch
 
 ## Network setup:
+Find the IP of the robot's PC and the companion PC
+In this example `@192.168.1.146` is the robot's PC and `192.168.1.108` is the companion PC
+Change these accordingly in the code below:
 In a new terminal:
 ```
 ssh uwi-sentry-agx@192.168.1.146

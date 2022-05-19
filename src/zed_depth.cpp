@@ -91,8 +91,9 @@ void handshake_from_nav_callback(const std_msgs::Bool::ConstPtr& msg)
   std::cout <<"inside of callback for handshake"<<handshake_from_nav<<'\n';
 }
   
-void data_from_nav_callback(const std_msgs::String::ConstPtr& msg){
-  std::cout <<"data from explore_sentry"<< msg->data <<'\n';
+void data_from_explore_sentry_callback(const std_msgs::String::ConstPtr& msg){
+  std::cout <<"data from explore_sentry:"<< msg->data <<'\n';
+  pub_commands.publish(message_float);
 }
 
 
@@ -235,7 +236,7 @@ void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
             }
   */
   
-   pub_commands.publish(message_float);
+   //pub_commands.publish(message_float);
    //pub_commands.publish(msg_string);
   }
   
@@ -286,9 +287,9 @@ int main(int argc, char** argv)
    */
   ros::Subscriber subDepth = n.subscribe("/zed2/zed_node/depth/depth_registered", 10, depthCallback);
 
-  ros::Subscriber subHandshake = n.subscribe("handshake_from_nav", 10, handshake_from_nav_callback);
+  //ros::Subscriber subHandshake = n.subscribe("handshake_from_nav", 10, handshake_from_nav_callback);
 
-  ros::Subscriber subNavData = n.subscribe("commands_from_nav", 10 , data_from_nav_callback);
+  ros::Subscriber subNavData = n.subscribe("request_from_explore_sentry", 10 , data_from_explore_sentry_callback);
 
   ROS_INFO("zed depth started");
   /**

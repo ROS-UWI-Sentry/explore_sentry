@@ -122,7 +122,11 @@ def callback_zed2_imu(data):
 
 def callback_data_from_depth(data):
     global commands_from_depth, ready
+    #print("i have received something from zed depth")
     commands_from_depth=data
+
+    #ready = True
+
     #print(commands_from_depth.data)
     #print("Inside receiving from depth")
 
@@ -155,6 +159,7 @@ def listener():
     rospy.loginfo("explore_sentry started")
     ###Subscribers###
 
+
     #this call creates a subscriber and defines message type and which topic it publishes to
     #whenever a message is received it calls the callback function
     
@@ -175,6 +180,8 @@ def listener():
 
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
+
+    ready = True
 
 #Robot parameters
     ts=2
@@ -198,6 +205,8 @@ def listener():
     headingbound=0.3
 
 #Setoperating variables
+    ydl=0 #local navigation y
+    xdl=0 #local navigation x
     yd=0
     xd=0
     wheel_rps=[0,0]
@@ -251,7 +260,7 @@ def listener():
         imu_lin_vel_z=zed2_imu_callback_data.linear_acceleration.z
 
         #get data from zed_depth.cpp in this cycle:
-        commands_from_depth_data=commands_from_depth.data
+        #commands_from_depth_data=commands_from_depth.data
         
         
         #print(imu_lin_vel_z)
@@ -263,9 +272,7 @@ def listener():
         
         rightvel=2*pi*r*wheel_encoder_velocity_right
         leftvel=2*pi*r*wheel_encoder_velocity_left
-        #Grab coordinates
-        xd=xdestraj[iter]
-        yd=ydestraj[iter]
+
         #initial conditions
         if time==0:
             xk=0
@@ -280,47 +287,71 @@ def listener():
 
         #Reset heading angle for full rotation in both directions
         if fabs(phik)>pi*2:
-            phikp=0
+            phikp= fabs(phik)-pi*2
         #print("Left rps: "+ str(wheel_encoder_velocity_left) + "Right rps: "+ str(wheel_encoder_velocity_right))
         
-       
-         #Develop Control systems
+        #Check local navigation
+        if ready==True:
+            xd=xdestraj[iter]
+            yd=ydestraj[iter]
+            pub_command.publish("MLNR")   
+            commands_from_depth_data=commands_from_depth.data   
+            if commands_from_depth_data!=0: 
+                ready=False #set that we are in local navigation
+                phidkp=commands_from_depth_data+phik   
+                phidk=commands_from_depth_data+phik
+                xd=xk+1*cos(phidkp)
+                yd=yk+1*sin(phidkp)
+                print("Z: "+str(commands_from_depth_data)+" Dphi: "+ str(phidkp)+" Ephi: "+str(ephi)) 
+            
+
+
+        #Develop Errors for controls
         ex=xd-xk
         ey=yd-yk
         #error bounds to be within goal
         if fabs(ex)<=xerrbound:
             ex=exbound
-            # ex=0.000001
         if fabs(ey)<=yerrbound:
             ey=eybound
-            # ey=0
-         
-        vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
-        #phidkp=phidk+ 0.2*(atan2(ey,ex))
-        phidkp=(atan2(ey,ex))
-        if fabs(phidkp)>2*pi:
-            phidkp=0
 
-        print(commands_from_depth_data)
-        phidkp=commands_from_depth_data
+        vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
+        
+        #phidkp=phidk+ 0.2*(atan2(ey,ex))
+        #If we can accept the global positions
+        if ready==True:
+            phidkp=(atan2(ey,ex))
+            if fabs(phidkp)>2*pi:
+                fabs(phidkp)-2*pi
+
+        #print("xdes: "+ str(xdestraj[iter])+ " ex: "+str(ex)+ " ydes: "+ str(ydestraj[iter])+" ey: "+str(ey)+" phides: "+ str(phidkp)+" phik: "+str(phik)+" R:"+str(ready)+ " vd: "+str(vd))
+
+        #print(commands_from_depth_data)
+        #ask for position here
+        
+             
+        #if we can accept the local navigation
+       
+
         #newang=0
         ''' if commands_from_depth!="":
             newang=re.findall(r"[-+]?(?:\d*\.\d+|\d+)", commands_from_depth_data)'''
         
         #newang=re.findall(r"[-+]?(?:\d*\.\d+|\d+)", commands_from_depth_data)
         #print(newang[0])
-        vd=0
+
 
         ephi=phidk-phik
         intekp=intek+ki*ephi # integral part
         phicdot=kp*(ephi)+intekp
         
-        #print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" zed xk: "+str(imu_ori_x)+ " ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" zedyk: "+str(imu_ori_y)+" phides: "+ str(phidkp)+" phik: "+str(phik))
-
+        
         #if using any loops consider adding "while not rospy.is_shutdown():" 
         #as a condition so that ctrl+C can break the loop
+        #bounded condition for turning
         if fabs(ephi)>ecludvec:
             vd=0 #stop moving and turn to correct heading
+
             
         #test rotation here
         
@@ -332,16 +363,20 @@ def listener():
         #right wheel rps:
         wheel_rps[1]=wr/(2*pi*r)
 
+        #We are within a bound of the desired
         if sqrt(pow(ex,2)+pow(ey,2))<headingbound:
             wheel_rps[0]=0
             wheel_rps[1]=0
-
-            #ready= True
+            if ready==True:
+#Get next trajectory
+                if iter<len(xdestraj)-1:
+                    iter=iter+1        
+        
+            if ready== False:
+                ready=True
+            
             #pub_ready.publish(ready)
 
-        #Get next trajectory
-            if iter<len(xdestraj)-1:
-                iter=iter+1        
         
         '''
         #if you are ready to accept data publish true:
@@ -401,7 +436,7 @@ if __name__ == '__main__':
 
 
     pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
-    pub_command = rospy.Publisher('commands_from_nav', String, queue_size=10)
+    pub_command = rospy.Publisher('request_from_explore_sentry', String, queue_size=10)
     #this value is a sleep value
     rate = rospy.Rate(1) #5Hz
 
@@ -410,8 +445,8 @@ if __name__ == '__main__':
 
     #initialize this publisher
     #not ready initialy
-    ready = True
-    pub_ready.publish(ready)
+    #ready = True
+    #pub_ready.publish(ready)
     #start the subscribing and publishing process
     try:
         listener() 

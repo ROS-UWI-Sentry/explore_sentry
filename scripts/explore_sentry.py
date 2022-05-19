@@ -41,16 +41,17 @@
 #|and publisher.                                      |
 #|____________________________________________________|
 
-
+import re
 import rospy
 from std_msgs.msg import String
 from std_msgs.msg import Int32
 from std_msgs.msg import Bool
+from std_msgs.msg import Float64
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist, Pose, Quaternion, PoseWithCovariance, TwistWithCovariance
 from twist_to_motor_rps.msg import Num
-from math import atan2, atan, pi, cos, sin, sqrt, pow, fabs
+from math import atan2, atan, pi, cos, sin, sqrt, pow, fabs, copysign
 
 
 ##########VARIABLES##########
@@ -67,7 +68,7 @@ zed2_imu_callback_data = Imu()
 #for publishing base velocity values in twist format
 base_velocity = Twist()
 
-commands_from_depth=String()
+commands_from_depth=Float64()
 
 ready= Bool()
 handshake_from_depth= Bool()
@@ -122,19 +123,20 @@ def callback_zed2_imu(data):
 def callback_data_from_depth(data):
     global commands_from_depth, ready
     commands_from_depth=data
-    print(commands_from_depth.data)
-    print("Inside receiving from depth")
+    #print(commands_from_depth.data)
+    #print("Inside receiving from depth")
 
 
-
+'''
 def callback_handshake_from_depth(data):
     global handshake_from_depth
     handshake_from_depth=data.data
     if handshake_from_depth==True:
-        print("inside of sending to depth")
+        #print("callback_handshake_from_depth")
+        #print(data.data)
         ready = True
         pub_ready.publish(ready)
-        pub_command.publish("data from nav as string")
+        pub_command.publish("data from nav as string")'''
 
 
 
@@ -166,41 +168,47 @@ def listener():
     rospy.Subscriber("/zed2/zed_node/imu/data", Imu, callback_zed2_imu)
     
     #subscride to information from the zed_depth.cpp script
-    rospy.Subscriber("commands_from_depth", String, callback_data_from_depth)
+    rospy.Subscriber("commands_from_depth", Float64, callback_data_from_depth)
 
     #subscribe to handshake from the zed_depth.cpp script
-    rospy.Subscriber("handshake_from_depth", Bool, callback_handshake_from_depth)
+    #rospy.Subscriber("handshake_from_depth", Bool, callback_handshake_from_depth)
 
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
 
+#Robot parameters
+    ts=2
+    r=0.11 #radius of the wheel
+    d=0.185 #distance between wheen and CG
 
-
-    #rps_output variable
-    wheel_rps=[0,0]
-
-    #Set reference positions
-    yd=1.8
-    xd=1.5
-
-    xk=0
-    yk=0
-    phik=0
-    time=0
-    phidk=0
-    #Set gains    
+#Set gains  for controller
     alpha=0.1
     kp=0.1
     ki=0.001
     intek=0
     iter=0
-    xdestraj=[1.5,1.5,0.3,0,0]
-    ydestraj=[0,1.8,1.8,0,0]
+    #xdestraj=[1.5,1.5,0.3,0,0] #x desired trajectories
+    #ydestraj=[0,1.8,1.8,0,0] #y desired trajectories
+    xdestraj=[1,2,2.5,2.5,2.5] #x desired trajectories
+    ydestraj=[0,0,0,0,0] #y desired trajectories
     #Bounds to adjust
-    xerrbound=0.2
-    yerrbound=0.1
+    xerrbound=0.2 #x range bound
+    yerrbound=0.1 #y range bound
     ecludvec=0.17
     headingbound=0.3
+
+#Setoperating variables
+    yd=0
+    xd=0
+    wheel_rps=[0,0]
+    xk=0
+    yk=0
+    phik=0
+    time=0
+    phidk=0
+    exbound=0.000001
+    eybound=0
+    
 
     #while ROS is not shutdown via terminal etc, run this in a loop at a rate of "rate Hz"
     while not rospy.is_shutdown():
@@ -252,9 +260,7 @@ def listener():
         #insert navigation algorithm here
         #################################
         #solver for odometry
-        ts=2
-        r=0.11 #radius of the wheel
-        d=0.185 #distance between wheen and CG
+        
         rightvel=2*pi*r*wheel_encoder_velocity_right
         leftvel=2*pi*r*wheel_encoder_velocity_left
         #Grab coordinates
@@ -266,7 +272,7 @@ def listener():
             yk=0
             phik=0
             phidk=0
-        #Euler Solver
+        #State space system and Euler Backward Integral Solver
         xkp=xk + ts*(r/2)*(rightvel+leftvel)*cos(phik)
         ykp=yk + ts*(r/2)*(rightvel+leftvel)*sin(phik)
         phikp=phik+ts*(r/(2*d))*(rightvel-leftvel)
@@ -277,35 +283,47 @@ def listener():
             phikp=0
         #print("Left rps: "+ str(wheel_encoder_velocity_left) + "Right rps: "+ str(wheel_encoder_velocity_right))
         
-
+       
          #Develop Control systems
         ex=xd-xk
         ey=yd-yk
+        #error bounds to be within goal
         if fabs(ex)<=xerrbound:
-             ex=0.000001
+            ex=exbound
+            # ex=0.000001
         if fabs(ey)<=yerrbound:
-             ey=0
+            ey=eybound
+            # ey=0
          
         vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
         #phidkp=phidk+ 0.2*(atan2(ey,ex))
         phidkp=(atan2(ey,ex))
-
         if fabs(phidkp)>2*pi:
             phidkp=0
-   
+
+        print(commands_from_depth_data)
+        phidkp=commands_from_depth_data
+        #newang=0
+        ''' if commands_from_depth!="":
+            newang=re.findall(r"[-+]?(?:\d*\.\d+|\d+)", commands_from_depth_data)'''
+        
+        #newang=re.findall(r"[-+]?(?:\d*\.\d+|\d+)", commands_from_depth_data)
+        #print(newang[0])
+        vd=0
 
         ephi=phidk-phik
         intekp=intek+ki*ephi # integral part
         phicdot=kp*(ephi)+intekp
         
-        print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" phides: "+ str(phidkp)+" phik: "+str(phik))
+        #print("xdes: "+ str(xdestraj[iter])+ " xk: "+str(xk)+" zed xk: "+str(imu_ori_x)+ " ydes: "+ str(ydestraj[iter])+" yk: "+str(yk)+" zedyk: "+str(imu_ori_y)+" phides: "+ str(phidkp)+" phik: "+str(phik))
 
         #if using any loops consider adding "while not rospy.is_shutdown():" 
         #as a condition so that ctrl+C can break the loop
         if fabs(ephi)>ecludvec:
-            vd=0
+            vd=0 #stop moving and turn to correct heading
             
-
+        #test rotation here
+        
         #publish base velocity using individual rps:
         #left wheel rps:
         wl=(2*vd-phicdot*d)/(2*r)

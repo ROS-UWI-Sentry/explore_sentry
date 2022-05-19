@@ -29,12 +29,15 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Float64.h"
 #include "std_msgs/Bool.h"
+#include <string>  
 
 int global_run_once = 0;
 std_msgs::Float64 msg_angle;
 ros::Publisher pub_commands;
 ros::Publisher pub_depth_ready;
 std_msgs::String msg_string;
+std_msgs::Float64 message_float;
+std::stringstream msg_string_string_stream;
 
 std_msgs::Bool depth_ready_bool;
 
@@ -95,10 +98,6 @@ void data_from_nav_callback(const std_msgs::String::ConstPtr& msg){
 
 void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
-  
-
-
-  
   // Get a pointer to the depth values casting the data
   // pointer to floating point
   float* depths = (float*)(&msg->data[0]);
@@ -115,12 +114,14 @@ void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
 
   int u=388; //robot width at 1 meter perspective projection
   int v=357; //robot height at 1 meter perspective projection
-
-int leftwidtharr[6]={164,358,552,746,910,940};
-int rightwidtharr[6]={1104,1298,1492,1686,1880,2074}; 
-int widthcenter=910;
-float depthbound=0.75;
-float areacoveragethresh=0.1;
+  int cammid=1104; //zed camera middle
+  float mmpx=1.29;
+//int leftwidtharr[6]={164,358,552,746,910,940};
+  int leftwidtharr[6]={910,716,522,328,134}; //
+  int rightwidtharr[6]={1104,1298,1492,1686,1880,2074}; 
+  int widthcenter=910;
+  float depthbound=0.75;
+  float areacoveragethresh=0.1;
 
 /*for(int i=widthcenter; i!=widthcenter+u && ros::ok();i++){
       //iterate through width space
@@ -144,6 +145,7 @@ float areacoveragethresh=0.1;
    // float column_area=u*(msg->height);
    // float perc_covered=distance_count/column_area;
     float perc_covered=scandepth(widthcenter, u, width, height, depthbound, depths);
+   // std::string msg_string="";
     if (perc_covered>areacoveragethresh){
       //Start scanning algorithm
       //Start left array first, then move to right 
@@ -153,7 +155,12 @@ float areacoveragethresh=0.1;
           perc_covered=scandepth(leftwidtharr[ll], u, width, height, depthbound, depths);
           if (perc_covered<areacoveragethresh){
             leftacheived=1+leftacheived;
-            std::cout <<"Left choice percCov:"<<perc_covered<<" column:"<<ll<<'\n';
+            float distcent=tan(0.001*mmpx*(cammid-(leftwidtharr[ll]+u)/2));
+            //msg_string_string_stream << "L:" << distcent;
+            //msg_string.data = msg_string_string_stream.str();
+            //msg_string.data=std::to_string(distcent);
+            message_float.data=distcent;
+            std::cout <<"Left choice percCov:"<<perc_covered<<" column:"<<ll<<" ang: "<<distcent<<'\n';
             
             /* OLD_publishing
             std::stringstream ss;
@@ -195,15 +202,16 @@ float areacoveragethresh=0.1;
         for (int ll=0; ll!=6; ll++){
             perc_covered=scandepth(rightwidtharr[ll], u, width, height, depthbound, depths);
             if (perc_covered<areacoveragethresh){
+
               std::cout <<"Right percCov:"<<perc_covered<<" column:"<<ll<<'\n';
-              
-
-
+              float distcent=tan(0.001*mmpx*(-cammid+(rightwidtharr[ll]+u)/2));
+              message_float.data=distcent;
               break;
             }else{
               //Could not find left or right column free rotate
               std::cout <<"Rotate:"<<'\n';
-            
+              float distcent=3.14;
+              message_float.data=distcent;
 
             }  
         }
@@ -211,7 +219,9 @@ float areacoveragethresh=0.1;
 
     }else{
       std::cout <<"Center percCov:"<<perc_covered<<'\n';
+      message_float.data=0;
     }
+
     /*
       if (handshake_from_nav==true){    
             std::stringstream ss;
@@ -224,6 +234,9 @@ float areacoveragethresh=0.1;
             test_count = test_count + 1;
             }
   */
+  
+   pub_commands.publish(message_float);
+   //pub_commands.publish(msg_string);
   }
   
 
@@ -288,7 +301,8 @@ int main(int argc, char** argv)
 
 
   //create publisher object(created in global scope):
-  pub_commands = n.advertise<std_msgs::String>("commands_from_depth", 1000);
+  //pub_commands = n.advertise<std_msgs::String>("commands_from_depth", 1000);
+  pub_commands = n.advertise<std_msgs::Float64>("commands_from_depth", 1000);
   pub_depth_ready = n.advertise<std_msgs::Bool>("handshake_from_depth", 1000, true);
 
   //to allow node to register with master etc

@@ -28,13 +28,14 @@ In this example `@192.168.1.146` is the robot's PC and `192.168.1.108` is the co
 Change these accordingly in the code below:
 In a new terminal:
 ```
-ssh uwi-sentry-agx@192.168.1.146
-export ROS_MASTER_URI=http://192.168.1.146:11311
-export ROS_IP=192.168.1.146
+ssh uwi-sentry-agx@192.168.1.103
+export ROS_MASTER_URI=http://192.168.1.103:11311
+export ROS_IP=192.168.1.103
 ```
 
 On companion PC terminal:
 ```
-export ROS_MASTER_URI=http://192.168.1.146:11311
-export ROS_IP=192.168.1.108
+export ROS_MASTER_URI=http://192.168.1.103:11311
+export ROS_IP=192.168.1.105
 ```
+For a permanent fix you can set these values in the PC's .bashrc file.(not the ssh command just the export)

@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   geometry_msgs
+  twist_to_motor_rps
 )
 
 ## System dependencies are found with CMake's conventions
@@ -143,6 +144,7 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(zed_depth src/zed_depth.cpp)
+add_executable( nav_sensor src/nav_sensor.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -153,6 +155,9 @@ add_executable(zed_depth src/zed_depth.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(explore_sentry ${catkin_EXPORTED_TARGETS})
+
+
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -170,6 +175,8 @@ add_executable(zed_depth src/zed_depth.cpp)
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
    scripts/explore_sentry.py
+   scripts/state_machine.py
+   scripts/controls_act.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
@@ -209,6 +216,9 @@ add_executable(zed_depth src/zed_depth.cpp)
 # catkin_add_gtest(${PROJECT_NAME}-test test/test_explore_sentry.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 target_link_libraries(zed_depth ${catkin_LIBRARIES})
+target_link_libraries(nav_sensor ${catkin_LIBRARIES})
+
+
 # endif()
 
 ## Add folders to be run by python nosetests

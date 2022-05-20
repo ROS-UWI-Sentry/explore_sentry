@@ -7,6 +7,8 @@ explore_sentry/src/zed_depth.cpp
 zed-ros-wrapper/zed_wrapper/launch/zed2.launch
 
 the commands to launch are:
+# new terminal
+roscore
 
 ## new terminal
 rosrun ard_com ard_com_rec.py

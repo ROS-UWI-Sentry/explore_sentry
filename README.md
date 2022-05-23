@@ -14,12 +14,18 @@ roscore
 rosrun ard_com ard_com_rec.py
 
 ##  new terminal
-rosrun explore_sentry explore_sentry.py
+rosrun explore_sentry state_machine.py
+
+##  new terminal
+rosrun explore_sentry system_model.py
+
+##  new terminal
+rosrun explore_sentry controls_act.py
 
 ## new terminal
 cd catkin_ws
 catkin_make
-rosrun explore_sentry zed_depth
+rosrun explore_sentry nav_sensor
 
 ## new terminal
 roslaunch zed_wrapper zed2.launch
@@ -41,3 +47,20 @@ export ROS_MASTER_URI=http://192.168.1.103:11311
 export ROS_IP=192.168.1.105
 ```
 For a permanent fix you can set these values in the PC's .bashrc file.(not the ssh command just the export)
+
+
+data used for tesing (ignore):
+state_machine:
+I received data from nav
+I received the sate vector
+I published the state vector to nav_sensor
+
+system_model:
+I published the state vector
+
+controls_act:
+"I received state vector"
+"I received data from state machine"
+
+nav_sensor:
+data from explore_sentry:

@@ -71,89 +71,32 @@ base_velocity = Twist()
 state_machine_data=[0,0,0,0]
 system_model_data=[0,0,0]
 
-commands_from_depth=Float64()
 
 ready= Bool()
 handshake_from_depth= Bool()
 
-#this callback function gets called whenever the occupancy grid is updated
-def callback_occupancy_grid(data):
-    global occupancy_grid_callback_data
-    #print(data)
-    #save to global variables
-    occupancy_grid_callback_data = data
-    '''map_resolution=data.info.resolution
-    map_width=data.info.width
-    map_height=data.info.height
-    map_pose_x=data.info.origin.position.x
-    map_pose_y=data.info.origin.position.y
-    map_pose_z=data.info.origin.position.z
-    map_ori_x=data.info.origin.orientation.x
-    map_ori_y=data.info.origin.orientation.y
-    map_ori_z=data.info.origin.orientation.z
-    map_ori_w=data.info.origin.orientation.w
-    map_cells=data.data
-    print(map_resolution)
-    print(map_width)
-    print(map_height)
-    print(map_pose_x)
-    print(map_pose_y)
-    print(map_pose_z)
-    print(map_ori_x)
-    print(map_ori_y)
-    print(map_ori_z)
-    print(map_ori_w)'''
     
 def callback_wheel_encoder(data):
     global wheel_encoder_velocity_callback_data
     wheel_encoder_velocity_callback_data = data.num
-
-
     
+   
 
-def callback_odom_wheels(data):
-    global odom_wheels_callback_data
-    odom_wheels_callback_data = data
 
 def callback_data_from_state_machine(data):
     global state_machine_data
     state_machine_data = data.num
+
 
 def callback_data_from_system_model(data):
     global system_model_data
     system_model_data = data.num
 
 
+
 def callback_zed2_imu(data):
     global zed2_imu_callback_data
     zed2_imu_callback_data = data
-
-
-def callback_data_from_depth(data):
-    global commands_from_depth, ready
-    #print("i have received something from zed depth")
-    commands_from_depth=data
-
-    #ready = True
-
-    #print(commands_from_depth.data)
-    #print("Inside receiving from depth")
-
-
-'''
-def callback_handshake_from_depth(data):
-    global handshake_from_depth
-    handshake_from_depth=data.data
-    if handshake_from_depth==True:
-        #print("callback_handshake_from_depth")
-        #print(data.data)
-        ready = True
-        pub_ready.publish(ready)
-        pub_command.publish("data from nav as string")'''
-
-
-
-    #print(ready)
 
 
 
@@ -163,7 +106,7 @@ def listener():
     
 
     global occupancy_grid_callback_data, wheel_encoder_velocity_callback_data
-    global odom_wheels_callback_data, zed2_imu_callback_data, commands_from_depth
+    global odom_wheels_callback_data, zed2_imu_callback_data
     global ready
     global state_machine_data, system_model_data
     rospy.loginfo("controls_act started")
@@ -174,16 +117,13 @@ def listener():
     #whenever a message is received it calls the callback function
     
 
-    #occupancy grid subscriber from rtabmap:
-    rospy.Subscriber('/map', OccupancyGrid, callback_occupancy_grid)
+
     #actual wheel velocity from encoders subscriber:
     rospy.Subscriber('/encoder_rps', Num, callback_wheel_encoder)
     
     #zed2 imu subscriber:
     rospy.Subscriber("/zed2/zed_node/imu/data", Imu, callback_zed2_imu)
-    
-    #subscride to information from the zed_depth.cpp script
-    rospy.Subscriber("commands_from_depth", Float64, callback_data_from_depth)
+
 
     #subscribe to information from state_machine
     rospy.Subscriber("state_machine_to_controls_act", Num, callback_data_from_state_machine)
@@ -209,8 +149,8 @@ def listener():
     #Bounds to adjust
     xerrbound=0.2 #x range bound
     yerrbound=0.1 #y range bound
-    ecludvec=0.17
-    headingbound=0.3
+    ecludvec=0.5    #0.17
+    headingbound=0.2 #0.3
 
 #Setoperating variables
     yd=0
@@ -246,7 +186,7 @@ def listener():
 
         xd=state_machine_data[0]
         yd=state_machine_data[1]
-        phid=state_machine_data[2]
+        #phid=state_machine_data[2]
         flag=state_machine_data[3]
         xk=system_model_data[0]
         yk=system_model_data[1]
@@ -258,9 +198,7 @@ def listener():
         yk=des_current_traj=[4]
         phik=des_current_traj=[5]'''
 
-        #Reset heading angle for full rotation in both directions
-        if fabs(phik)>pi*2:
-            phikp= fabs(phik)-pi*2
+        
         #print("Left rps: "+ str(wheel_encoder_velocity_left) + "Right rps: "+ str(wheel_encoder_velocity_right))
           
 
@@ -268,6 +206,9 @@ def listener():
         #Develop Errors for controls
         ex=xd-xk
         ey=yd-yk
+
+        
+
         #error bounds to be within goal
         if fabs(ex)<=xerrbound:
             ex=exbound
@@ -278,9 +219,9 @@ def listener():
         
         #phidkp=phidk+ 0.2*(atan2(ey,ex))
     
-        phidkp=(atan2(ey,ex))
-        if fabs(phidkp)>2*pi:
-            fabs(phidkp)-2*pi
+        phidk=(atan2(ey,ex))
+      #  if fabs(phidkp)>2*pi:
+      #       phidkp=fabs(phidkp)-2*pi
 
 
 
@@ -308,13 +249,18 @@ def listener():
 
         #We are within a bound of the desired
         if sqrt(pow(ex,2)+pow(ey,2))<headingbound:
+            #Stop and get next trajectory
             wheel_rps[0]=0
             wheel_rps[1]=0
+            pub_to_state_machine.publish("NexTraj")
+            print("xd: "+ str(xd) +" yd: "+ str(yd) +" xk: "+str(xk)+ " yk: "+str(yk)+ " Lw: "+str(wheel_rps[0])+ " Rw: "+str(wheel_rps[1]))
 
-
+        
 
         #publish the rps to the wheels:
         pub_wheel_rps.publish(wheel_rps)
+
+        #phidk=phidkp
        
 
 
@@ -349,9 +295,7 @@ if __name__ == '__main__':
     #pub_timer_finished = rospy.Publisher('sentry_control_topic', String, queue_size=10)
     
 
-
-    pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
-    pub_command = rospy.Publisher('request_from_explore_sentry', String, queue_size=10)
+    pub_to_state_machine = rospy.Publisher('controls_act_to_state_machine', String, queue_size=10)
     #this value is a sleep value
     rate = rospy.Rate(1) #5Hz
 
@@ -359,9 +303,7 @@ if __name__ == '__main__':
     rate.sleep()
 
     #initialize this publisher
-    #not ready initialy
-    #ready = True
-    #pub_ready.publish(ready)
+
     #start the subscribing and publishing process
     try:
         listener() 

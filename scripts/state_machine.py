@@ -74,6 +74,9 @@ nav_sensor_callback_data = [0, 0 ,0]
 #for data from system_model
 state_vector_data = [0, 0, 0]
 
+#for data from control_act
+control_act_data = "null"
+
 commands_from_depth=Float64()
 
 ready= Bool()
@@ -84,15 +87,21 @@ def callback_nav_sensor(data):
     global nav_sensor_callback_data
     nav_sensor_callback_data = data.num
 
+
 def callback_state_vector(data):
     global state_vector_data
     state_vector_data=data.num
+    print(state_vector_data)
+
+def callback_control_act(data):
+    global control_act_data
+    control_act_data=data.data
+
 
 def listener():
- 
     global ready
     global nav_sensor_callback_data, state_vector_data
-    global state_machine_data
+    global state_machine_data, control_act_data
     rospy.loginfo("state_machine started")
     ###Subscribers###
 
@@ -107,16 +116,25 @@ def listener():
     #data from system model:
     rospy.Subscriber('/state_vector', Num, callback_state_vector)
 
+    #data from control_act:
+    rospy.Subscriber('/controls_act_to_state_machine', String, callback_control_act)
+
 
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
 
     ready = True
-
+   # desired goals
+    xdestraj=[0,1.5,1.5,0.3,0]
+    ydestraj=[0,0,1.8,1.8,0]
+    #xdestraj=[0,1.5]
+    #ydestraj=[0,0]
     xd = 0
     yd = 0
     phid = 0
-
+    flag=-1
+    headingbound=0.3 #error heading the 
+    iter=0
     
 
     #while ROS is not shutdown via terminal etc, run this in a loop at a rate of "rate Hz"
@@ -135,27 +153,41 @@ def listener():
         yk=state_vector_data[1]
         phik=state_vector_data[2]
         pub_to_nav_sensor.publish([xk,yk,phik])
-        #Check local navigation
-        if ready==True:
-            #xd=xdestraj[iter]
-            #yd=ydestraj[iter]
-            #pub_command.publish("MLNR")
-            xd=nav_sensor_callback_data[0]
-            yd=nav_sensor_callback_data[1]
-            phid=nav_sensor_callback_data[2]
-            #publish to control_act
-            flag=0
-            pub_to_control_act.publish([xd,yd,phid,flag])
 
+        #Check local navigation
+        #if ready==True:
+            #pub_command.publish("MLNR")
+            #xd=nav_sensor_callback_data[0]
+            #yd=nav_sensor_callback_data[1]
+            #phid=nav_sensor_callback_data[2]
+            #publish to control_act
+            
+
+        #Determine if we need to stop at the goal or for any reason
+        xd=xdestraj[iter]
+        yd=ydestraj[iter]
+        if control_act_data=="NexTraj":
+            control_act_data=""
+            if iter<len(xdestraj)-1:
+                print("Next Goal")
+                iter=iter+1
+                xd=xdestraj[iter]
+                yd=ydestraj[iter]
+            flag=0
+        
+        pub_to_control_act.publish([xd,yd,phid,flag])
+        print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
             #commands_from_depth_data=nav_sensor_callback_data
             #commands_from_depth_data=commands_from_depth.data  
 
-            '''if commands_from_depth_data!=0: 
+        '''if commands_from_depth_data!=0: 
                 ready=False #set that we are in local navigation
                 phidkp=commands_from_depth_data+phik   
 
                 print("Z: "+str(commands_from_depth_data)+" Dphi: "+ str(phidkp)+" Ephi: "+str(ephi)) 
 '''
+        print(control_act_data)
+
         rate.sleep()
 
     #may not be needed when using "while not rospy.is_shutdown():"
@@ -182,7 +214,7 @@ if __name__ == '__main__':
     
 
 
-    pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
+    #pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
     pub_to_nav_sensor = rospy.Publisher('state_machine_to_nav_sensor', Num, queue_size=10)
     pub_to_control_act = rospy.Publisher('state_machine_to_controls_act', Num, queue_size=10)
     #this value is a sleep value

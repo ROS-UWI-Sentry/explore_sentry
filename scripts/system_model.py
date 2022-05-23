@@ -68,10 +68,8 @@ zed2_imu_callback_data = Imu()
 #for publishing base velocity values in twist format
 base_velocity = Twist()
 
-commands_from_depth=Float64()
-
 ready= Bool()
-handshake_from_depth= Bool()
+
 
 #this callback function gets called whenever the occupancy grid is updated
 def callback_occupancy_grid(data):
@@ -120,34 +118,6 @@ def callback_zed2_imu(data):
     zed2_imu_callback_data = data
 
 
-def callback_data_from_depth(data):
-    global commands_from_depth, ready
-    #print("i have received something from zed depth")
-    commands_from_depth=data
-
-    #ready = True
-
-    #print(commands_from_depth.data)
-    #print("Inside receiving from depth")
-
-
-'''
-def callback_handshake_from_depth(data):
-    global handshake_from_depth
-    handshake_from_depth=data.data
-    if handshake_from_depth==True:
-        #print("callback_handshake_from_depth")
-        #print(data.data)
-        ready = True
-        pub_ready.publish(ready)
-        pub_command.publish("data from nav as string")'''
-
-
-
-    #print(ready)
-
-
-
 def listener():
  
 
@@ -173,8 +143,6 @@ def listener():
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
 
-    ready = True
-
 #Robot parameters
     ts=2
     r=0.11 #radius of the wheel
@@ -195,28 +163,10 @@ def listener():
    
         #Pull variables from callbacks so that they don't change during calculation 
       
-        
         #wheel encoder velocity:
         wheel_encoder_velocity_left=wheel_encoder_velocity_callback_data[0]
         wheel_encoder_velocity_right=wheel_encoder_velocity_callback_data[1]
-
-        #zed2 imu data:
-        imu_ori_x=zed2_imu_callback_data.orientation.x
-        imu_ori_y=zed2_imu_callback_data.orientation.y
-        imu_ori_z=zed2_imu_callback_data.orientation.z
-        imu_ori_w=zed2_imu_callback_data.orientation.w
-        imu_ang_vel_x=zed2_imu_callback_data.angular_velocity.x
-        imu_ang_vel_y=zed2_imu_callback_data.angular_velocity.y
-        imu_ang_vel_z=zed2_imu_callback_data.angular_velocity.z        
-        imu_lin_vel_x=zed2_imu_callback_data.linear_acceleration.x
-        imu_lin_vel_y=zed2_imu_callback_data.linear_acceleration.y
-        imu_lin_vel_z=zed2_imu_callback_data.linear_acceleration.z
-
-        #get data from zed_depth.cpp in this cycle:
-        #commands_from_depth_data=commands_from_depth.data
-        
-        
-        #print(imu_lin_vel_z)
+ 
 
         #################################
         #insert navigation algorithm here
@@ -239,6 +189,11 @@ def listener():
         phikp=phik+ts*(r/(2*d))*(rightvel-leftvel)
         time=time+1
 
+        #Reset heading angle for full rotation in both directions
+        if fabs(phikp)>pi*2:
+            phikp= fabs(phikp)-pi*2
+
+        print("xk: "+ str(xk)+ " yk: "+str(yk)+ " phik: "+str(phik))
 
         #Set next values
         xk=xkp
@@ -248,6 +203,7 @@ def listener():
         #publish xk yk phik
         state_vector=[xk,yk,phik]
         pub_state_vector.publish(state_vector)
+
  
 
         rate.sleep()
@@ -276,8 +232,8 @@ if __name__ == '__main__':
     
 
 
-    pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
-    pub_command = rospy.Publisher('request_from_explore_sentry', String, queue_size=10)
+    #pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
+    #pub_command = rospy.Publisher('request_from_explore_sentry', String, queue_size=10)
     #pub_k_values = rospy.Publisher('xyphik', Num, queue_size=10)
     #this value is a sleep value
     rate = rospy.Rate(1) #5Hz

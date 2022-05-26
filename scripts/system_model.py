@@ -51,7 +51,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist, Pose, Quaternion, PoseWithCovariance, TwistWithCovariance
 from twist_to_motor_rps.msg import Num
-from math import atan2, atan, pi, cos, sin, sqrt, pow, fabs, copysign
+from math import atan2, atan, pi, cos, sin, sqrt, pow, fabs, copysign, modf
 
 
 ##########VARIABLES##########
@@ -145,7 +145,7 @@ def listener():
 
 #Robot parameters
     ts=2
-    r=0.11 #radius of the wheel
+    r=0.1143 #radius of the wheel
     d=0.185 #distance between wheen and CG
 
 
@@ -187,11 +187,16 @@ def listener():
         xkp=xk + ts*(r/2)*(rightvel+leftvel)*cos(phik)
         ykp=yk + ts*(r/2)*(rightvel+leftvel)*sin(phik)
         phikp=phik+ts*(r/(2*d))*(rightvel-leftvel)
+        #phikp=phik+48.33*ts*(r/(2*d))*(rightvel-leftvel)
         time=time+1
+        #reference between 0 and 2pi
+        if fabs(phikp)>2*pi:
+            phikp=phikp-2*pi
 
         #Reset heading angle for full rotation in both directions
-        if fabs(phikp)>pi*2:
-            phikp= fabs(phikp)-pi*2
+
+
+
 
         print("xk: "+ str(xk)+ " yk: "+str(yk)+ " phik: "+str(phik))
 

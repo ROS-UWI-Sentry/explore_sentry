@@ -146,30 +146,6 @@ void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
   float depthbound=0.75;
   float areacoveragethresh=0.1;
 
-  //state_trajectory.num[0]=4; //this causes a segmentation fault
-  
-  /*
-  state_trajectory.num={1,3,1};
-  pub_to_state_machine.publish(state_trajectory);
-  */
-
-/*for(int i=widthcenter; i!=widthcenter+u && ros::ok();i++){
-      //iterate through width space
-      for (int q=0;q!=(msg->height)-1 && ros::ok();q++){
-        //iterate through top right quadrant
-        int pixval=i+msg->width*q;
-        //std::cout <<"pixel sel: "<<pixval<<'\n';
-        //ROS_INFO("%g",msg->width);
-        float depth=depths[pixval];
-        //float depth=1;
-        if (depth<depthbound){
-            distance_count=distance_count+1;
-            //std::cout <<"x: "<< q << " " << "y: " << i << " " <<"pixval: " << pixval << " " <<"distance: " << depth<< '\n';
-        }
-        
-      }
-       
-    } */
     int height=(msg->height);
     int width=(msg->width);
    // float column_area=u*(msg->height);
@@ -179,42 +155,36 @@ void depthCallback(const sensor_msgs::Image::ConstPtr& msg)
     if (perc_covered>areacoveragethresh){
       //Start scanning algorithm
       //Start left array first, then move to right 
-      int leftacheived=0;
+      int acheived=0;
       //Scan Left 55degree FOV
       for (int ll=0; ll!=6; ll++){
           perc_covered=scandepth(leftwidtharr[ll], u, width, height, depthbound, depths);
           if (perc_covered<areacoveragethresh){
-            leftacheived=1+leftacheived;
+            acheived=1+acheived;
             float distcent=tan(0.001*mmpx*(cammid-(leftwidtharr[ll]+u)/2));
             //msg_string_string_stream << "L:" << distcent;
-            //msg_string.data = msg_string_string_stream.str();
-            //msg_string.data=std::to_string(distcent);
             message_float.data=distcent;
             std::cout <<"Left choice percCov:"<<perc_covered<<" column:"<<ll<<" ang: "<<distcent<<'\n';
-            
-
             break;
           }
-      }
-      //Did not get any passable columns in left try right
-      if(leftacheived==0){
-        for (int ll=0; ll!=6; ll++){
-            perc_covered=scandepth(rightwidtharr[ll], u, width, height, depthbound, depths);
+          perc_covered=scandepth(rightwidtharr[ll], u, width, height, depthbound, depths);
             if (perc_covered<areacoveragethresh){
-
+              acheived=1+acheived;
               std::cout <<"Right percCov:"<<perc_covered<<" column:"<<ll<<'\n';
               float distcent=tan(0.001*mmpx*(-cammid+(rightwidtharr[ll]+u)/2));
               message_float.data=distcent;
               break;
-            }else{
-              //Could not find left or right column free rotate
-              std::cout <<"Rotate:"<<'\n';
-              float distcent=3.14;
-              message_float.data=distcent;
+            }
 
-            }  
-        }
       }
+
+      if(acheived==0){
+            std::cout <<"Rotate:"<<'\n';
+            float distcent=3.14;
+            message_float.data=distcent;
+
+      }
+      //Did not get any passable columns in left try right
 
     }else{
       std::cout <<"Center percCov:"<<perc_covered<<'\n';

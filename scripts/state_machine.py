@@ -125,15 +125,15 @@ def listener():
 
     ready = True
    # desired goals
-    xdestraj=[0,1.5,1.5,0.3,0]
-    ydestraj=[0,0,1.8,1.8,0]
-    #xdestraj=[0,1.5]
-    #ydestraj=[0,0]
+    #xdestraj=[0,1.5,1.5,0,0]
+    #ydestraj=[0,0,1.5,1.5,0]
+    xdestraj=[0,3]
+    ydestraj=[0,0]
     xd = 0
     yd = 0
     phid = 0
     flag=-1
-    headingbound=0.3 #error heading the 
+    localnavengaged=0
     iter=0
     
 
@@ -153,6 +153,12 @@ def listener():
         yk=state_vector_data[1]
         phik=state_vector_data[2]
         pub_to_nav_sensor.publish([xk,yk,phik])
+        
+        #Callback from nav sensor
+        xd=nav_sensor_callback_data[0]
+        yd=nav_sensor_callback_data[1]
+        phid=nav_sensor_callback_data[2]
+        print(str(xd), " ", str(yd), " ", str(phid))
 
         #Check local navigation
         #if ready==True:
@@ -166,6 +172,9 @@ def listener():
         #Determine if we need to stop at the goal or for any reason
         xd=xdestraj[iter]
         yd=ydestraj[iter]
+        
+             #send to nav sensor to choose a direction and not go forward
+            #local navigator is not engaged
         if control_act_data=="NexTraj":
             control_act_data=""
             if iter<len(xdestraj)-1:
@@ -174,6 +183,7 @@ def listener():
                 xd=xdestraj[iter]
                 yd=ydestraj[iter]
             flag=0
+
         
         pub_to_control_act.publish([xd,yd,phid,flag])
         print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))

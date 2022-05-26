@@ -147,10 +147,10 @@ def listener():
     intek=0
 
     #Bounds to adjust
-    xerrbound=0.2 #x range bound
+    xerrbound=0.15 #x range bound
     yerrbound=0.1 #y range bound
-    ecludvec=0.5    #0.17
-    headingbound=0.2 #0.3
+    ecludvec=0.15    #0.17 angle bound
+    headingbound=0.1 #0.3 
 
 #Setoperating variables
     yd=0
@@ -161,9 +161,11 @@ def listener():
     phik=0
     time=0
     phidk=0
+    phidkp=0
     exbound=0.000001
     eybound=0
     flag=0
+
     #des_current_traj=[xd,yd,phik,xk,yk,phik,flag]
 
 
@@ -215,14 +217,11 @@ def listener():
         if fabs(ey)<=yerrbound:
             ey=eybound
 
+        #Get velocity and heading references
         vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
-        
-        #phidkp=phidk+ 0.2*(atan2(ey,ex))
-    
         phidk=(atan2(ey,ex))
-      #  if fabs(phidkp)>2*pi:
-      #       phidkp=fabs(phidkp)-2*pi
-
+        if phidk<0 and phik>0:
+            phidk=atan2(ey,ex)+2*pi
 
 
         ephi=phidk-phik
@@ -230,11 +229,14 @@ def listener():
         phicdot=kp*(ephi)+intekp
         
         
-        #if using any loops consider adding "while not rospy.is_shutdown():" 
-        #as a condition so that ctrl+C can break the loop
-        #bounded condition for turning
+
+        #error heading is out of phi bound
         if fabs(ephi)>ecludvec:
             vd=0 #stop moving and turn to correct heading
+            print("phidk: "+ str(phidk)+" phi: "+str(phik))
+
+        else:
+            print("xd: "+ str(xd) +" yd: "+ str(yd) +" xk: "+str(xk)+ " yk: "+str(yk))
 
             
         #test rotation here
@@ -253,14 +255,14 @@ def listener():
             wheel_rps[0]=0
             wheel_rps[1]=0
             pub_to_state_machine.publish("NexTraj")
-            print("xd: "+ str(xd) +" yd: "+ str(yd) +" xk: "+str(xk)+ " yk: "+str(yk)+ " Lw: "+str(wheel_rps[0])+ " Rw: "+str(wheel_rps[1]))
+            print("Next Traj")
+            
 
-        
 
         #publish the rps to the wheels:
         pub_wheel_rps.publish(wheel_rps)
 
-        #phidk=phidkp
+        phidk=phidkp
        
 
 

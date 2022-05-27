@@ -116,6 +116,7 @@ void data_from_state_machine(const twist_to_motor_rps::Num::ConstPtr& msg){
   // send xd yd and phid in that order
   state_trajectory.num={xd,yd,phidk};
   pub_to_state_machine.publish(state_trajectory);
+  
 }
 
 

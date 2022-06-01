@@ -193,6 +193,9 @@ def listener():
         if fabs(phikp)>2*pi:
             phikp=phikp-2*pi
 
+        if fabs(phik)>2*pi:
+            phik=phik-2*pi
+
         #Reset heading angle for full rotation in both directions
 
 

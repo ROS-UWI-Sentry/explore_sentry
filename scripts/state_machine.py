@@ -91,7 +91,7 @@ def callback_nav_sensor(data):
 def callback_state_vector(data):
     global state_vector_data
     state_vector_data=data.num
-    print(state_vector_data)
+    #print(state_vector_data)
 
 def callback_control_act(data):
     global control_act_data
@@ -125,13 +125,19 @@ def listener():
 
     ready = True
    # desired goals
-    xdestraj=[0,1.5,1.5,0,0]
-    ydestraj=[0,0,1.5,1.5,0]
+    xdestraj=[0,2.5,2.5]
+    ydestraj=[0,0,1]
+
     #xdestraj=[0,3]
     #ydestraj=[0,0]
     xd = 0
     yd = 0
     phid = 0
+
+    cxd=0
+    cyd=0
+    cphid=0
+
     flag=-1
     localnavengaged=0
     iter=0
@@ -158,37 +164,46 @@ def listener():
         
         
         #Check local navigation
-        #if ready==True:
-            #pub_command.publish("MLNR")
-            #xd=nav_sensor_callback_data[0]
-            #yd=nav_sensor_callback_data[1]
-            #phid=nav_sensor_callback_data[2]
-            #publish to control_act
-            
-
         #Determine if we need to stop before traversing
 
-        cxd=nav_sensor_callback_data[0]
-        cyd=nav_sensor_callback_data[1]
-        cphid=nav_sensor_callback_data[2]
-        print("Zxd: "+ str(cxd)+ " Zyd: "+ str(cyd), " Zphid: "+ str(cphid))
  
-
              #send to nav sensor to choose a direction and not go forward
             #local navigator is not engaged
+        if localnavengaged==0:
+            #object infront, get new location
+            if control_act_data=="NexTraj":
+                control_act_data=""
+                if iter<len(xdestraj)-1:
+                    print("At goal give next goal")
+                    iter=iter+1
+                    xd=xdestraj[iter]
+                    yd=ydestraj[iter]
+                flag=0
+            cxd=nav_sensor_callback_data[0]
+            cyd=nav_sensor_callback_data[1]
+            cphid=nav_sensor_callback_data[2]
+            print("Zxd: "+ str(cxd)+ " Zyd: "+ str(cyd), " Zphid: "+ str(cphid))
+            if cphid!=0:
+                xd=cxd
+                yd=cyd
+                localnavengaged=1
+                print("Local Navigation Active")
+                print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
+            
 
-        if control_act_data=="NexTraj":
-            control_act_data=""
-            if iter<len(xdestraj)-1:
-                print("Next Goal")
-                iter=iter+1
+        if localnavengaged==1:
+            xd=cxd
+            yd=cyd
+            if control_act_data=="NexTraj":
+                control_act_data=""
+                print("Local Nav offline")                    
+                localnavengaged=0
                 xd=xdestraj[iter]
                 yd=ydestraj[iter]
-            flag=0
+                print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
 
-        
         pub_to_control_act.publish([xd,yd,phid,flag])
-        print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
+        #print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
             #commands_from_depth_data=nav_sensor_callback_data
             #commands_from_depth_data=commands_from_depth.data  
 
@@ -198,7 +213,7 @@ def listener():
 
                 print("Z: "+str(commands_from_depth_data)+" Dphi: "+ str(phidkp)+" Ephi: "+str(ephi)) 
 '''
-        print(control_act_data)
+        #print(control_act_data)
 
         rate.sleep()
 

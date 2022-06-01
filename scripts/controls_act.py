@@ -149,8 +149,8 @@ def listener():
     #Bounds to adjust
     xerrbound=0.15 #x range bound
     yerrbound=0.1 #y range bound
-    ecludvec=0.15    #0.17 angle bound
-    headingbound=0.1 #0.3 
+    headingbound=0.3    #0.17 angle bound
+    eclidvec=0.15 #0.3 
 
 #Setoperating variables
     yd=0
@@ -165,6 +165,7 @@ def listener():
     exbound=0.000001
     eybound=0
     flag=0
+    ephikm1=0
 
     #des_current_traj=[xd,yd,phik,xk,yk,phik,flag]
 
@@ -220,8 +221,8 @@ def listener():
         #Get velocity and heading references
         vd=alpha*sqrt(pow(ex,2)+pow(ey,2))
         phidk=(atan2(ey,ex))
-        if phidk<0 and phik>0:
-            phidk=atan2(ey,ex)+2*pi
+        #if phidk<0 and phik>0:
+        #   phidk=atan2(ey,ex)+2*pi
 
 
         ephi=phidk-phik
@@ -231,10 +232,16 @@ def listener():
         
 
         #error heading is out of phi bound
-        if fabs(ephi)>ecludvec:
+        if fabs(ephi)>headingbound:
             vd=0 #stop moving and turn to correct heading
-            print("phidk: "+ str(phidk)+" phi: "+str(phik))
-
+            #check direction for zero crossing
+            print("phidk: "+ str(phidk)+" phi: "+str(phik)+"for: "+str(xd) +" , "+ str(yd))
+            #if phik>0 and phidk<0:
+            #    phicdot=-1*phicdot
+            #if phidk>0 and phik<0:
+            #    phicdot=-1*phicdot
+            #if fabs(ephikm1)<fabs(ephi):
+            #    phicdot=-1*phicdot   
         else:
             print("xd: "+ str(xd) +" yd: "+ str(yd) +" xk: "+str(xk)+ " yk: "+str(yk))
 
@@ -250,20 +257,19 @@ def listener():
         wheel_rps[1]=wr/(2*pi*r)
 
         #We are within a bound of the desired
-        if sqrt(pow(ex,2)+pow(ey,2))<headingbound:
+        if sqrt(pow(ex,2)+pow(ey,2))<eclidvec:
             #Stop and get next trajectory
             wheel_rps[0]=0
             wheel_rps[1]=0
             pub_to_state_machine.publish("NexTraj")
             print("Next Traj")
-            
-
+        
 
         #publish the rps to the wheels:
         pub_wheel_rps.publish(wheel_rps)
 
         phidk=phidkp
-       
+        ephikm1=ephi
 
 
         '''#twist_to_motor node converts this into individual wheel velocities 

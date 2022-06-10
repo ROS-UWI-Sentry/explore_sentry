@@ -174,9 +174,11 @@ add_executable( nav_sensor src/nav_sensor.cpp)
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   scripts/explore_sentry.py
    scripts/state_machine.py
    scripts/controls_act.py
+   scripts/system_model.py
+   scripts/lidar3d_sensor.py
+   scripts/lidar_tf.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

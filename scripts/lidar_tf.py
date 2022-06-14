@@ -9,17 +9,21 @@ from std_msgs.msg import Float64
 from sensor_msgs.msg import PointCloud
 from math import atan2, tan, atan, pi, cos, sin, sqrt, pow, fabs, copysign, radians
 
+import roslib; roslib.load_manifest('laser_assembler')
+import rospy; from laser_assembler.srv import *
+
 import tf
 angle = 0
 br = tf.TransformBroadcaster()
 def callback_angle(data):
     global angle
     angle=data.data
-    br.sendTransform((0, 0, 0),
-    tf.transformations.quaternion_from_euler(radians(angle-225), 0, 0),
+    br.sendTransform((0, 0, 0.585), #0.2m for ydlidar
+    tf.transformations.quaternion_from_euler(radians(225-angle), 0, 0),
     rospy.Time.now(),
     "laser_frame",
     "base_footprint")
+   
 
 
 
@@ -31,20 +35,14 @@ def listener():
     rospy.Subscriber('/angle', Int32, callback_angle) 
 
     while not rospy.is_shutdown():  
-        '''if angle>199: 
-            br.sendTransform((0, 0, 0),
-            tf.transformations.quaternion_from_euler(0, (angle-255), 0),
-            rospy.Time.now(),
-            "laser_frame",
-            "base_footprint")
-        elif angle <=199:
-            br.sendTransform((0, 0, 0),
-            tf.transformations.quaternion_from_euler(0, (255-angle), 0),
-            rospy.Time.now(),
-            "laser_frame",
-            "base_footprint")'''
-
-        rate.sleep()
+        try:
+            assemble_scans = rospy.ServiceProxy('assemble_scans', AssembleScans)
+            resp = assemble_scans(rospy.Time(0,0), rospy.get_rostime())
+            print "Got cloud with %u points" % len(resp.cloud.points)
+            pc_pub.publish(resp.cloud)
+            rate.sleep()
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
 
 
         
@@ -57,8 +55,9 @@ if __name__ == '__main__':     #Program start from here
     # run simultaneously.
     #create a unique node:
     rospy.init_node('lidar_tf', anonymous=False)
-
-    rate = rospy.Rate(2) #2Hz -> 500ms
+    rospy.wait_for_service("assemble_scans")
+    pc_pub = rospy.Publisher("point_cloud_combined", PointCloud)
+    rate = rospy.Rate(5) #2Hz -> 500ms
     #so node can register with master
     rate.sleep()
     try:

@@ -75,7 +75,7 @@ if __name__ == '__main__':     #Program start from here
     rospy.init_node('lidar_tf', anonymous=False)
     #rospy.wait_for_service("assemble_scans")
     pc_pub = rospy.Publisher("point_cloud_combined", PointCloud)
-    rate = rospy.Rate(5) #2Hz -> 500ms
+    rate = rospy.Rate(50) #2Hz -> 500ms
     #so node can register with master
     rate.sleep()
     try:

@@ -27,8 +27,20 @@ cd catkin_ws
 catkin_make
 rosrun explore_sentry nav_sensor
 
+## for zed camera
 ## new terminal
 roslaunch zed_wrapper zed2.launch
+
+## for lidar
+### ensure that the static tf publisher is commented out in the launch file
+### <param name="port"         type="string" value="/dev/ttyUSB0"/> 
+### <param name="angle_min"    type="double" value="-157.5" /> 
+### <param name="angle_max"    type="double" value="-22.5" />
+open new terminal
+cd ydlidar_ws
+source ./devel/setup.sh
+roslaunch ydlidar_ros_driver lidar.launch
+
 
 ## Network setup:
 Find the IP of the robot's PC and the companion PC
@@ -48,19 +60,3 @@ export ROS_IP=192.168.1.105
 ```
 For a permanent fix you can set these values in the PC's .bashrc file.(not the ssh command just the export)
 
-
-data used for tesing (ignore):
-state_machine:
-I received data from nav
-I received the sate vector
-I published the state vector to nav_sensor
-
-system_model:
-I published the state vector
-
-controls_act:
-"I received state vector"
-"I received data from state machine"
-
-nav_sensor:
-data from explore_sentry:

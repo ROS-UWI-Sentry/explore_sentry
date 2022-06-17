@@ -34,16 +34,18 @@ rosrun explore_sentry nav_sensor
 roslaunch zed_wrapper zed2.launch
 
 ## for lidar
-### ensure that the static tf publisher is commented out in the launch file
+### ensure that the static tf publisher is commented out in the launch file and the following params are: 
 ```
 <param name="port"         type="string" value="/dev/ttyUSB0"/> 
 <param name="angle_min"    type="double" value="-157.5" /> 
 <param name="angle_max"    type="double" value="-22.5" />
 ```
+```
 open new terminal
 cd ydlidar_ws
 source ./devel/setup.sh
 roslaunch ydlidar_ros_driver lidar.launch
+```
 
 
 ## Network setup:

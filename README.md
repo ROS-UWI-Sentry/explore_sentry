@@ -23,9 +23,11 @@ rosrun explore_sentry system_model.py
 rosrun explore_sentry controls_act.py
 
 ## new terminal
+```
 cd catkin_ws
 catkin_make
 rosrun explore_sentry nav_sensor
+```
 
 ## for zed camera
 ## new terminal
@@ -33,9 +35,11 @@ roslaunch zed_wrapper zed2.launch
 
 ## for lidar
 ### ensure that the static tf publisher is commented out in the launch file
-### <param name="port"         type="string" value="/dev/ttyUSB0"/> 
-### <param name="angle_min"    type="double" value="-157.5" /> 
-### <param name="angle_max"    type="double" value="-22.5" />
+```
+<param name="port"         type="string" value="/dev/ttyUSB0"/> 
+<param name="angle_min"    type="double" value="-157.5" /> 
+<param name="angle_max"    type="double" value="-22.5" />
+```
 open new terminal
 cd ydlidar_ws
 source ./devel/setup.sh

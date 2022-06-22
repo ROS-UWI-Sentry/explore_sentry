@@ -82,6 +82,8 @@ commands_from_depth=Float64()
 ready= Bool()
 handshake_from_depth= Bool()
 
+navigation_active_state="navigation_inactive"
+
 
 def callback_nav_sensor(data):
     global nav_sensor_callback_data
@@ -97,11 +99,15 @@ def callback_control_act(data):
     global control_act_data
     control_act_data=data.data
 
+def callback_navigation_control(data):
+    global navigation_active_state
+    navigation_active_state=data.data
+
 
 def listener():
     global ready
     global nav_sensor_callback_data, state_vector_data
-    global state_machine_data, control_act_data
+    global state_machine_data, control_act_data, navigation_active_state
     rospy.loginfo("state_machine started")
     ###Subscribers###
 
@@ -119,6 +125,8 @@ def listener():
     #data from control_act:
     rospy.Subscriber('/controls_act_to_state_machine', String, callback_control_act)
 
+    #data from state_machine:
+    rospy.Subscriber('/nav_control', String, callback_navigation_control)
 
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
@@ -139,9 +147,17 @@ def listener():
     cphid=0
 
     flag=-1
-    localnavengaged=0
+    localnavengaged=1 #no obsticle avoidance for demo
     iter=0
-    
+
+    #to know if the nextraj message is for the first point
+    #so it wouldn't sanitize the starting point twice
+    first_nextraj = True 
+
+
+    #to know if sentry is moving between points or not
+    #i.e. a point is already sent.
+    in_motion = False
 
     #while ROS is not shutdown via terminal etc, run this in a loop at a rate of "rate Hz"
     while not rospy.is_shutdown():
@@ -160,49 +176,33 @@ def listener():
         phik=state_vector_data[2]
         pub_to_nav_sensor.publish([xk,yk,phik])
         
-        #Callback from nav sensor
-        
-        
-        #Check local navigation
-        #Determine if we need to stop before traversing
 
- 
-             #send to nav sensor to choose a direction and not go forward
-            #local navigator is not engaged
-        if localnavengaged==0:
-            #object infront, get new location
-            if control_act_data=="NexTraj":
-                control_act_data=""
+        if navigation_active_state=="navigation_active":
+            if not in_motion:
+                #publish next goal, be in motion
                 if iter<len(xdestraj)-1:
-                    print("At goal give next goal")
+                    print("At goal, giving next goal")
                     iter=iter+1
                     xd=xdestraj[iter]
-                    yd=ydestraj[iter]
-                flag=0
-            cxd=nav_sensor_callback_data[0]
-            cyd=nav_sensor_callback_data[1]
-            cphid=nav_sensor_callback_data[2]
-            print("Zxd: "+ str(cxd)+ " Zyd: "+ str(cyd), " Zphid: "+ str(cphid))
-            if cphid!=0:
-                xd=cxd
-                yd=cyd
-                localnavengaged=1
-                print("Local Navigation Active")
-                print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
-            
+                    yd=ydestraj[iter]            
+                    pub_to_control_act.publish([xd,yd,phid,flag])
+                    in_motion = True   
+                else:
+                    pub_to_main_control.publish("all_goals_reached")
+                    print("all goals reached")
+            elif in_motion:
+                #wait until next goal is requested
+                if control_act_data=="NexTraj":
+                    #tell fsm that the goal is reached
+                    #to sanitize this spot
+                    pub_to_main_control.publish("goal_reached")
+                    #in the event there is a delay, inactivate nav
+                    navigation_active_state="navigation_inactive"
+        elif navigation_active_state=="navigation_inactive":
+            in_motion=False     
 
-        if localnavengaged==1:
-            xd=cxd
-            yd=cyd
-            if control_act_data=="NexTraj":
-                control_act_data=""
-                print("Local Nav offline")                    
-                localnavengaged=0
-                xd=xdestraj[iter]
-                yd=ydestraj[iter]
-                print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
+   
 
-        pub_to_control_act.publish([xd,yd,phid,flag])
         #print("xd: "+ str(xd)+ " yd: "+ str(yd)+ " phid: "+ str(phid) +" iter: "+ str(iter))
             #commands_from_depth_data=nav_sensor_callback_data
             #commands_from_depth_data=commands_from_depth.data  
@@ -216,6 +216,13 @@ def listener():
         #print(control_act_data)
 
         rate.sleep()
+
+    #pub_to_main_control.Publish("goal_reached")
+    #pub_to_main_control.Publish("all_goals_reached")
+    #navigation_inactive
+    #navigation_active
+
+    
 
     #may not be needed when using "while not rospy.is_shutdown():"
     # spin() simply keeps python from exiting until this node is stopped
@@ -244,6 +251,7 @@ if __name__ == '__main__':
     #pub_ready = rospy.Publisher('handshake_from_nav', Bool, queue_size=10, latch=True)
     pub_to_nav_sensor = rospy.Publisher('state_machine_to_nav_sensor', Num, queue_size=10)
     pub_to_control_act = rospy.Publisher('state_machine_to_controls_act', Num, queue_size=10)
+    pub_to_main_control = rospy.Publisher('sentry_control_topic', String, queue_size=10)
     #this value is a sleep value
     rate = rospy.Rate(1) #5Hz
 
@@ -260,3 +268,4 @@ if __name__ == '__main__':
     except rospy.ROSInterruptException:
         pass
     
+

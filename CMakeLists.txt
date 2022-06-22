@@ -178,7 +178,7 @@ add_executable( nav_sensor src/nav_sensor.cpp)
    scripts/controls_act.py
    scripts/system_model.py
    scripts/lidar3d_sensor.py
-   scripts/lidar_tf.py
+   #scripts/lidar_tf.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

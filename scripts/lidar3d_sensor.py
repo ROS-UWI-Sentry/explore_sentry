@@ -101,7 +101,7 @@ def test_without_laser_assembler():
     rospy.loginfo("lidar3d_sensor started")
     #initial position 
     i = 9.4 
-    waiting_time=0.5
+    waiting_time=0.1
     p.ChangeDutyCycle(i)
     time.sleep(1)
     pwmArray = [9.4, 9.8, 10.2, 10.6, 11, 11.4, 11.8, 12.2]
@@ -116,6 +116,12 @@ def test_without_laser_assembler():
             p.ChangeDutyCycle(pwm)
             time.sleep(waiting_time)
 
+            #send tf
+            br.sendTransform((0, 0, 0.585), #0.2m for ydlidar
+            tf.transformations.quaternion_from_euler(0, 0, 0),
+            rospy.Time.now(),
+            "laser_frame",
+            "base_footprint")  
                  
         for x in range(7, -1, -1): #to decrement
             
@@ -124,6 +130,15 @@ def test_without_laser_assembler():
             pub_angle.publish(radians(angle))
             p.ChangeDutyCycle(pwm)
             time.sleep(waiting_time)
+
+            #send tf
+            br.sendTransform((0, 0, 0.585), #0.2m for ydlidar
+            tf.transformations.quaternion_from_euler(0, 0, 0),
+            rospy.Time.now(),
+            "laser_frame",
+            "base_footprint")  
+    
+        
 
 
 
@@ -162,12 +177,12 @@ if __name__ == '__main__':     #Program start from here
     pub_to_state_machine = rospy.Publisher("nav_sensor_data", Num, queue_size=100)
     rate_init.sleep()
     try:
-        #test_without_laser_assembler()
+        test_without_laser_assembler()
 
-        thread = threading.Thread(target=process_pointcloud, args=())
-        thread.start()
+        #thread = threading.Thread(target=process_pointcloud, args=())
+        #thread.start()
 
-        laser_assembler()
+        #laser_assembler()
         
 
         p.stop()

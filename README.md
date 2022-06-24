@@ -14,6 +14,8 @@ roscore
 rosrun ard_com ard_com_rec.py
 
 ##  new terminal
+for demo:
+rosrun explore_sentry state_machine_demo.py
 rosrun explore_sentry state_machine.py
 
 ##  new terminal

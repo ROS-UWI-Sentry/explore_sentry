@@ -133,7 +133,7 @@ def listener():
 
     ready = True
    # desired goals
-    xdestraj=[0,2.5,2.5]
+    xdestraj=[0,1,1]
     ydestraj=[0,0,1]
 
     #xdestraj=[0,3]
@@ -187,9 +187,11 @@ def listener():
                     yd=ydestraj[iter]            
                     pub_to_control_act.publish([xd,yd,phid,flag])
                     in_motion = True   
+                    control_act_data=""
                 else:
                     pub_to_main_control.publish("all_goals_reached")
                     print("all goals reached")
+                    control_act_data=""
             elif in_motion:
                 #wait until next goal is requested
                 if control_act_data=="NexTraj":

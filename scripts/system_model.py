@@ -143,13 +143,13 @@ def listener():
     #this value is a sleep value
     rate = rospy.Rate(5) #5Hz
 
-#Robot parameters
+    #Robot parameters
     ts=2
     r=0.1143 #radius of the wheel
     d=0.185 #distance between wheen and CG
 
 
-#Setoperating variables
+    #Setoperating variables
    
     xk=0
     yk=0
